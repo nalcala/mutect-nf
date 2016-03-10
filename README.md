@@ -1,5 +1,5 @@
 ## mutect-nf
-### Mutect on tumor-matched normal bam folder with Nextflow
+### Mutect pipeline on tumor-matched normal bam folder with Nextflow
 
 #### Dependencies
 1. Install [Mutect](https://github.com/broadinstitute/mutect).
