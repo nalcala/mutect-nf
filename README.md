@@ -21,8 +21,11 @@ Either Nextflow is in your path and you have relevant rights on the script:
 Or :  
 `nextflow run mutect.nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta`
 
-#### Help
-You can print the help manual by providing `--help` input in the execution command line.  
+#### Help section
+You can print the help manual by providing `--help` input in the execution command line:
+```bash
+nextflow run mutect.nf --help
+```
 This shows details about optional and mandatory parameters provided by the user.  
 
 #### BAM file format
