@@ -16,10 +16,10 @@ if (params.help) {
     log.info '    --normal_bam_folder  FOLDER                  Folder containing matched normal BAM files.'
     log.info '    --bed                FILE                    Bed file containing intervals.'
     log.info '    --ref                FILE (with index)       Reference fasta file.'
-    log.info 'Optional arguments:'
     log.info '    --mutect_path        FILE                    mutect*.jar explicit path.'
     log.info '    --dbsnp              FILE                    dbSNP VCF file required by mutect.'
     log.info '    --cosmic             FILE                    Cosmic VCF file required by mutect.'
+    log.info 'Optional arguments:'
     log.info '    --mutect_args        STRING                  Arguments you want to pass to mutect.'
     log.info '    --suffix_tumor       STRING                  Suffix identifying tumor bam (default: "_T").'
     log.info '    --suffix_normal      STRING                  Suffix identifying normal bam (default: "_N").'
@@ -101,7 +101,7 @@ process mutect {
     shell:
     tumor_normal_tag = tn[0].baseName.replace("_T","")
     '''
-    java -Xmx!{params.mem}g -jar !{params.mutect} --analysis_type MuTect --reference_sequence !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} --intervals !{bed} --input_file:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam --input_file:normal !{tumor_normal_tag}!{params.suffix_normal}.bam --out "!{tumor_normal_tag}_calls_stats.txt" --vcf "!{tumor_normal_tag}_calls.vcf" !{params.mutect_args}
+    java -Xmx!{params.mem}g -jar !{params.mutect_path} --analysis_type MuTect --reference_sequence !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} --intervals !{bed} --input_file:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam --input_file:normal !{tumor_normal_tag}!{params.suffix_normal}.bam --out "!{tumor_normal_tag}_calls_stats.txt" --vcf "!{tumor_normal_tag}_calls.vcf" !{params.mutect_args}
     '''
 }
 
