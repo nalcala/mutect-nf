@@ -2,7 +2,7 @@
 ### Mutect pipeline on tumor-matched normal bam folder with Nextflow
 
 #### Dependencies
-1. Install [Mutect](https://github.com/broadinstitute/mutect).
+1. Install [Mutect](https://github.com/broadinstitute/mutect) and its dependencies (Java 1.7 and Maven 3.0+).
 
 2. Install [nextflow](http://www.nextflow.io/).
 
