@@ -1,6 +1,6 @@
 #! /usr/bin/env nextflow
 
-// usage : ./mutect.nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta --mutect_args "--force_output --force_alleles"
+// usage : ./mutect.nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta --mutect_args " --force_output --force_alleles "
 
 if (params.help) {
     log.info ''
@@ -9,7 +9,7 @@ if (params.help) {
     log.info '--------------------------------------------------'
     log.info ''
     log.info 'Usage: '
-    log.info 'nextflow run mutect.nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta --mutect_args "--force_output --force_alleles" '
+    log.info 'nextflow run mutect.nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta --mutect_args " --force_output --force_alleles " '
     log.info ''
     log.info 'Mandatory arguments:'
     log.info '    --tumor_bam_folder   FOLDER                  Folder containing tumor BAM files to be called.'
@@ -21,6 +21,7 @@ if (params.help) {
     log.info '    --cosmic             FILE                    Cosmic VCF file required by mutect.'
     log.info 'Optional arguments:'
     log.info '    --mutect_args        STRING                  Arguments you want to pass to mutect.'
+    log.info '                                                 WARNING: form is " --force_alleles " with spaces between quotes.'  
     log.info '    --suffix_tumor       STRING                  Suffix identifying tumor bam (default: "_T").'
     log.info '    --suffix_normal      STRING                  Suffix identifying normal bam (default: "_N").'
     log.info '    --mem                INTEGER                 Java memory passed to mutect.'
