@@ -5,7 +5,7 @@
 if (params.help) {
     log.info ''
     log.info '--------------------------------------------------'
-    log.info 'NEXTFLOW MUTECT'
+    log.info '                 NEXTFLOW MUTECT                  '
     log.info '--------------------------------------------------'
     log.info ''
     log.info 'Usage: '
