@@ -101,7 +101,7 @@ process mutect {
     file("${tumor_normal_tag}_calls_stats.txt") into mutect_output2
 
     shell:
-    tumor_normal_tag = tn[0].baseName.replace("_T","")
+    tumor_normal_tag = tn[0].baseName.replace(params.suffix_tumor,"")
     '''
     java -Xmx!{params.mem}g -jar !{params.mutect_path} --analysis_type MuTect --reference_sequence !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} --intervals !{bed} --input_file:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam --input_file:normal !{tumor_normal_tag}!{params.suffix_normal}.bam --out "!{tumor_normal_tag}_calls_stats.txt" --vcf "!{tumor_normal_tag}_calls.vcf" !{params.mutect_args}
     '''
