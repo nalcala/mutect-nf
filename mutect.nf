@@ -97,7 +97,8 @@ process mutect {
     file fasta_ref_dict
 
     output:
-    file("${tumor_normal_tag}_calls.vcf") into mutect_output
+    file("${tumor_normal_tag}_calls.vcf") into mutect_output1
+    file("${tumor_normal_tag}_calls_stats.txt") into mutect_output2
 
     shell:
     tumor_normal_tag = tn[0].baseName.replace("_T","")
