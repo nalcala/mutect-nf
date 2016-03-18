@@ -83,7 +83,9 @@ tn_bambai = tumor_bam_bai
 // here each element X of tn_bambai channel is a 4-uplet. X[0] is the tumor bam, X[1] the tumor bai, X[2] the normal bam and X[3] the normal bai.
 
 process mutect {
-  
+
+    memory params.mem
+
     tag { tumor_normal_tag }
 
     publishDir params.out_folder, mode: 'move'
