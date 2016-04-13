@@ -84,7 +84,8 @@ tn_bambai = tumor_bam_bai
 
 process mutect {
 
-    memory params.mem
+    memory { params.mem+'.GB' * task.attempt }
+    errorStrategy 'retry'
 
     tag { tumor_normal_tag }
 
