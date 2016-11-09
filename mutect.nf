@@ -14,14 +14,16 @@ if (params.help) {
     log.info 'Mandatory arguments:'
     log.info '    --tumor_bam_folder   FOLDER                  Folder containing tumor BAM files to be called.'
     log.info '    --normal_bam_folder  FOLDER                  Folder containing matched normal BAM files.'
-    log.info '    --bed                FILE                    Bed file containing intervals.'
     log.info '    --ref                FILE (with index)       Reference fasta file.'
     log.info '    --mutect_path        FILE                    mutect*.jar explicit path.'
     log.info '    --dbsnp              FILE                    dbSNP VCF file required by mutect.'
     log.info '    --cosmic             FILE                    Cosmic VCF file required by mutect.'
     log.info 'Optional arguments:'
+    log.info '    --bed                FILE                    Bed file containing intervals.'
+    log.info '    --region             REGION                  A region defining the calling, in the format CHR:START-END.'
+    log.info '    NOTE: if neither --bed or --region, will perform the calling on whole genome, based on the faidx file.'
     log.info '    --mutect_args        STRING                  Arguments you want to pass to mutect.'
-    log.info '                                                 WARNING: form is " --force_alleles " with spaces between quotes.'  
+    log.info '                                                 WARNING: form is " --force_alleles " with spaces between quotes.'
     log.info '    --suffix_tumor       STRING                  Suffix identifying tumor bam (default: "_T").'
     log.info '    --suffix_normal      STRING                  Suffix identifying normal bam (default: "_N").'
     log.info '    --mem                INTEGER                 Java memory passed to mutect.'
@@ -44,7 +46,7 @@ params.mem = 8
 params.out_folder = "mutect_results"
 params.mutect_args = ""
 
-// FOR TUMOR 
+// FOR TUMOR
 // recovering of bam files
 tumor_bams = Channel.fromPath( params.tumor_bam_folder+'/*'+params.suffix_tumor+'.bam' )
               .ifEmpty { error "Cannot find any bam file in: ${params.tumor_bam_folder}" }
@@ -60,7 +62,7 @@ tumor_bam_bai = tumor_bams
     	      .phase(tumor_bais)
     	      .map { tumor_bam, tumor_bai -> [ tumor_bam[0], tumor_bam[1], tumor_bai[1] ] }
 
-// FOR NORMAL 
+// FOR NORMAL
 // recovering of bam files
 normal_bams = Channel.fromPath( params.normal_bam_folder+'/*'+params.suffix_normal+'.bam' )
               .ifEmpty { error "Cannot find any bam file in: ${params.normal_bam_folder}" }
@@ -79,7 +81,7 @@ normal_bam_bai = normal_bams
 // building 4-uplets corresponding to {tumor_bam, tumor_bai, normal_bam, normal_bai}
 tn_bambai = tumor_bam_bai
 	      .phase(normal_bam_bai)
-	      .map {tumor_bb, normal_bb -> [ tumor_bb[1], tumor_bb[2], normal_bb[1], normal_bb[2] ] }	
+	      .map {tumor_bb, normal_bb -> [ tumor_bb[1], tumor_bb[2], normal_bb[1], normal_bb[2] ] }
 // here each element X of tn_bambai channel is a 4-uplet. X[0] is the tumor bam, X[1] the tumor bai, X[2] the normal bam and X[3] the normal bai.
 
 process mutect {
@@ -109,6 +111,3 @@ process mutect {
     java -Xmx!{params.mem}g -jar !{params.mutect_path} --analysis_type MuTect --reference_sequence !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} --intervals !{bed} --input_file:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam --input_file:normal !{tumor_normal_tag}!{params.suffix_normal}.bam --out "!{tumor_normal_tag}_calls_stats.txt" --vcf "!{tumor_normal_tag}_calls.vcf" !{params.mutect_args}
     '''
 }
-
-
-
