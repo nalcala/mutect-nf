@@ -15,14 +15,14 @@
 	```
 
 
-#### Execution 
+#### Execution
 Either Nextflow is in your path and you have relevant rights on the script:   
 `./mutect.nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta`  
 Or :  
 `nextflow run mutect.nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta`
 
 #### Help section
-You can print the help manual by providing `--help` input in the execution command line:
+You can print the help manual by providing `--help` in the execution command line:
 ```bash
 nextflow run mutect.nf --help
 ```
