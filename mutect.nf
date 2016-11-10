@@ -22,6 +22,7 @@ if (params.help) {
     log.info '    --bed                FILE                    Bed file containing intervals.'
     log.info '    --region             REGION                  A region defining the calling, in the format CHR:START-END.'
     log.info '    NOTE: if neither --bed or --region, will perform the calling on whole genome, based on the faidx file.'
+    log.info '    --nsplit             INTEGER                 Split the region for calling in nsplit pieces and run in parallel.'
     log.info '    --mutect_args        STRING                  Arguments you want to pass to mutect.'
     log.info '                                                 WARNING: form is " --force_alleles " with spaces between quotes.'
     log.info '    --suffix_tumor       STRING                  Suffix identifying tumor bam (default: "_T").'
@@ -45,6 +46,7 @@ params.suffix_normal = "_N"
 params.mem = 8
 params.out_folder = "mutect_results"
 params.mutect_args = ""
+params.nsplit = 1
 
 // FOR TUMOR
 // recovering of bam files
@@ -84,30 +86,81 @@ tn_bambai = tumor_bam_bai
 	      .map {tumor_bb, normal_bb -> [ tumor_bb[1], tumor_bb[2], normal_bb[1], normal_bb[2] ] }
 // here each element X of tn_bambai channel is a 4-uplet. X[0] is the tumor bam, X[1] the tumor bai, X[2] the normal bam and X[3] the normal bai.
 
+/* manage input positions to call (bed or region or whole-genome) */
+  if (params.region) {
+      input_region = 'region'
+  } else if (params.bed) {
+      input_region = 'bed'
+      bed = file(params.bed)
+  } else {
+      input_region = 'whole_genome'
+}
+
+/* process to create a bed file from region or from faidx if whole-genome, otherwise return the input bed file */
+process bed {
+      output:
+      file "temp.bed" into outbed
+
+      shell:
+      if (input_region == 'region')
+      '''
+      echo !{params.region} | sed -e 's/[:|-]/	/g' > temp.bed
+      '''
+
+      else if (input_region == 'bed')
+      '''
+      ln -s !{bed} temp.bed
+      '''
+
+      else if (input_region == 'whole_genome')
+      '''
+      cat !{fasta_ref_fai} | awk '{print $1"	"0"	"$2 }' > temp.bed
+      '''
+  }
+
+
+/* split bed file into nsplit regions */
+process split_bed {
+
+      input:
+      file bed from outbed
+
+      output:
+      file '*_regions.bed' into split_bed, count_split_bed mode flatten
+
+      shell:
+      '''
+      grep -v '^track' !{bed} | sort -k1,1 -k2,2n | bedtools merge -i stdin | awk '{print $1" "$2" "$3}' | cut_into_small_beds.r !{params.nsplit}
+      '''
+}
+
+//println count_split_bed.count().val
+
 process mutect {
 
     memory { params.mem+'.GB' * task.attempt }
     errorStrategy 'retry'
 
-    tag { tumor_normal_tag }
+    tag { printed_tag }
 
     publishDir params.out_folder, mode: 'move'
 
     input:
-    file tn from tn_bambai
-    file bed
+    file bed_tn from tn_bambai.spread(split_bed)
     file fasta_ref
     file fasta_ref_fai
     file fasta_ref_gzi
     file fasta_ref_dict
 
     output:
-    file("${tumor_normal_tag}_calls.vcf") into mutect_output1
-    file("${tumor_normal_tag}_calls_stats.txt") into mutect_output2
+    file("${tumor_normal_tag}_${bed_tag}_calls.vcf") into mutect_output1
+    file("${tumor_normal_tag}_${bed_tag}_calls_stats.txt") into mutect_output2
 
     shell:
-    tumor_normal_tag = tn[0].baseName.replace(params.suffix_tumor,"")
+    tumor_normal_tag = bed_tn[0].baseName.replace(params.suffix_tumor,"")
+    bed_tag = bed_tn[4].baseName //bed_tn = bamN,baiN,bamT,baiT,bed
+    printed_tag = tumor_normal_tag + "_" + bed_tag
     '''
-    java -Xmx!{params.mem}g -jar !{params.mutect_path} --analysis_type MuTect --reference_sequence !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} --intervals !{bed} --input_file:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam --input_file:normal !{tumor_normal_tag}!{params.suffix_normal}.bam --out "!{tumor_normal_tag}_calls_stats.txt" --vcf "!{tumor_normal_tag}_calls.vcf" !{params.mutect_args}
+    java -Xmx!{params.mem}g -jar !{params.mutect_path} --analysis_type MuTect --reference_sequence !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} --intervals !{bed_tag}.bed --input_file:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam --input_file:normal !{tumor_normal_tag}!{params.suffix_normal}.bam --out "!{tumor_normal_tag}_!{bed_tag}_calls_stats.txt" --vcf "!{tumor_normal_tag}_!{bed_tag}_calls.vcf" !{params.mutect_args}
     '''
 }
