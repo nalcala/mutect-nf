@@ -143,8 +143,6 @@ process mutect {
 
     tag { printed_tag }
 
-    publishDir params.out_folder, mode: 'move'
-
     input:
     file bed_tn from tn_bambai.spread(split_bed)
     file fasta_ref
@@ -153,8 +151,8 @@ process mutect {
     file fasta_ref_dict
 
     output:
-    file("${tumor_normal_tag}_${bed_tag}_calls.vcf") into mutect_output1
-    file("${tumor_normal_tag}_${bed_tag}_calls_stats.txt") into mutect_output2
+    set val(tumor_normal_tag), file("${tumor_normal_tag}_${bed_tag}_calls.vcf") into mutect_output1
+    set val(tumor_normal_tag), file("${tumor_normal_tag}_${bed_tag}_calls_stats.txt") into mutect_output2
 
     shell:
     tumor_normal_tag = bed_tn[0].baseName.replace(params.suffix_tumor,"")
@@ -163,4 +161,43 @@ process mutect {
     '''
     java -Xmx!{params.mem}g -jar !{params.mutect_path} --analysis_type MuTect --reference_sequence !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} --intervals !{bed_tag}.bed --input_file:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam --input_file:normal !{tumor_normal_tag}!{params.suffix_normal}.bam --out "!{tumor_normal_tag}_!{bed_tag}_calls_stats.txt" --vcf "!{tumor_normal_tag}_!{bed_tag}_calls.vcf" !{params.mutect_args}
     '''
+}
+
+beds_length = count_split_bed.count().val
+
+process mergeMuTectOutputs {
+
+  tag { tumor_normal_tag }
+
+  publishDir params.out_folder, mode: 'move'
+
+  input:
+  set val(tumor_normal_tag), file(vcf_files) from mutect_output1.groupTuple(size: beds_length)
+  set val(tumor_normal_tag2), file(txt_files) from mutect_output2.groupTuple(size: beds_length)
+
+  output:
+  file("${tumor_normal_tag}_calls.vcf") into res1
+  file("${tumor_normal_tag}_calls_stats.txt") into res2
+
+  shell:
+  '''
+  # MERGE VCF FILES
+  sed '/^#CHROM/q' `ls -1 *.vcf | head -1` > header.txt
+  # Check if sort command allows sorting in natural order (chr1 chr2 chr10 instead of chr1 chr10 chr2)
+  if [ `sort --help | grep -c 'version-sort' ` == 0 ]
+  then
+      sort_ops="-k1,1d"
+  else
+      sort_ops="-k1,1V"
+  fi
+  # Add all VCF contents and sort
+  grep --no-filename -v '^#' *.vcf | LC_ALL=C sort -t '	' $sort_ops -k2,2n >> header.txt
+  mv header.txt !{tumor_normal_tag}_calls.vcf
+
+  # MERGE TXT FILES
+  head -n2 `ls -1 *.txt | head -1` > header.txt
+  sed -i '1,2d' *calls_stats.txt
+  cat *calls_stats.txt >> header.txt
+  mv header.txt !{tumor_normal_tag}_calls_stats.txt
+  '''
 }
