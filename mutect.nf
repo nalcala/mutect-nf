@@ -39,7 +39,6 @@ fasta_ref = file(params.ref)
 fasta_ref_fai = file( params.ref+'.fai' )
 fasta_ref_gzi = file( params.ref+'.gzi' )
 fasta_ref_dict = file( params.ref.replace(".fasta",".dict") )
-bed = file(params.bed)
 
 params.suffix_tumor = "_T"
 params.suffix_normal = "_N"
