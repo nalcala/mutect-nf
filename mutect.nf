@@ -37,8 +37,7 @@ if (params.help) {
 fasta_ref = file(params.ref)
 fasta_ref_fai = file( params.ref+'.fai' )
 fasta_ref_gzi = file( params.ref+'.gzi' )
-fasta_ref_dict = file( params.ref.replace(".fasta",".dict") )
-if( ! fasta_ref_dict.exists() ) fasta_ref_dict = file( params.ref.replace(".fa",".dict") )
+fasta_ref_dict = file( params.ref.replace(".fasta",".dict").replace(".fa",".dict") )
 
 params.suffix_tumor = "_T"
 params.suffix_normal = "_N"
