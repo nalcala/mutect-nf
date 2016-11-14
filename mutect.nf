@@ -30,7 +30,6 @@ if (params.help) {
     log.info '    --mem                INTEGER                 Java memory passed to mutect.'
     log.info '    --out_folder         FOLDER                  Output folder (default: mutect_results).'
     log.info ''
-    log.info 'CAUTION: mutect*.jar executing file has to be in your $PATH.'
     log.info ''
     exit 1
 }
