@@ -31,7 +31,7 @@ if (params.help) {
     log.info '    --suffix_normal      STRING                  Suffix identifying normal bam (default: "_N").'
     log.info '    --mem                INTEGER                 Java memory passed to mutect.'
     log.info '    --out_folder         FOLDER                  Output folder (default: mutect_results).'
-    log.info '    --java_path          PATH                    Path to JAVA (default: java).'
+    log.info '    --java               PATH                    Name of the JAVA command  (default: java).'
     log.info ''
     log.info ''
     exit 1
@@ -50,7 +50,7 @@ params.mutect_args = ""
 params.nsplit = 1
 params.region = null
 params.bed = null
-params.java_path = "java"
+params.java = "java"
 
 // FOR TUMOR
 // recovering of bam files
@@ -163,7 +163,7 @@ process mutect {
     bed_tag = bed_tn[4].baseName //bed_tn = bamN,baiN,bamT,baiT,bed
     printed_tag = tumor_normal_tag + "_" + bed_tag
     '''
-    !{params.java_path} -Xmx!{params.mem}g -jar !{params.mutect_path} --analysis_type MuTect --reference_sequence !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} --intervals !{bed_tag}.bed --input_file:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam --input_file:normal !{tumor_normal_tag}!{params.suffix_normal}.bam --out "!{tumor_normal_tag}_!{bed_tag}_calls_stats.txt" --vcf "!{tumor_normal_tag}_!{bed_tag}_calls.vcf" !{params.mutect_args}
+    !{params.java} -Xmx!{params.mem}g -jar !{params.mutect_path} --analysis_type MuTect --reference_sequence !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} --intervals !{bed_tag}.bed --input_file:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam --input_file:normal !{tumor_normal_tag}!{params.suffix_normal}.bam --out "!{tumor_normal_tag}_!{bed_tag}_calls_stats.txt" --vcf "!{tumor_normal_tag}_!{bed_tag}_calls.vcf" !{params.mutect_args}
     '''
 }
 
