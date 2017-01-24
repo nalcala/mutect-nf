@@ -147,9 +147,6 @@ process split_bed {
 
 process mutect {
 
-    memory { params.mem * task.attempt }
-    errorStrategy 'retry'
-
     tag { printed_tag }
 
     input:
