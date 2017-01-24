@@ -23,7 +23,7 @@ Nextflow seamlessly integrates with GitHub hosted code repositories:
 #### Help section
 You can print the help manual by providing `--help` in the execution command line:
 ```bash
-nextflow run mutect.nf --help
+nextflow run iarcbioinfo/mutect-nf --help
 ```
 This shows details about optional and mandatory parameters provided by the user.  
 
