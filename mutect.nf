@@ -17,7 +17,9 @@ if (params.help) {
     log.info '    --tumor_bam_folder   FOLDER                  Folder containing tumor BAM files to be called.'
     log.info '    --normal_bam_folder  FOLDER                  Folder containing matched normal BAM files.'
     log.info '    --ref                FILE (with index)       Reference fasta file.'
-    log.info '    --mutect_path        FILE                    mutect*.jar explicit path.'
+    log.info '    --mutect_jar         FILE                    mutect*.jar explicit path.'
+    log.info '    OR'
+    log.info '    --mutect2_jar        FILE                    gatk*.jar explicit path to run mutect2 (integrated to GATK).'
     log.info '    --dbsnp              FILE                    dbSNP VCF file required by mutect (CAUTION: not a symbolic link).'
     log.info '    --cosmic             FILE                    Cosmic VCF file required by mutect (CAUTION: not a symbolic link).'
     log.info 'Optional arguments:'
@@ -51,7 +53,9 @@ params.nsplit = 1
 params.region = null
 params.bed = null
 params.java = "java"
-params.mutect2 = false
+params.mutect_jar = null
+params.mutect2_jar = null
+mutect_version = params.mutect_jar ? 1 : 2
 
 // FOR TUMOR
 // recovering of bam files
@@ -149,6 +153,7 @@ process mutect {
     tag { printed_tag }
 
     input:
+    val mutect_version
     file bed_tn from tn_bambai.spread(split_bed)
     file fasta_ref
     file fasta_ref_fai
@@ -164,12 +169,12 @@ process mutect {
     bed_tag = bed_tn[4].baseName //bed_tn = bamN,baiN,bamT,baiT,bed
     printed_tag = tumor_normal_tag + "_" + bed_tag
     '''
-    if [ "!{params.mutect2}" == "true" ]
+    if [ "!{mutect_version}" == "2" ]
         then
-            !{params.java} -Xmx!{params.mem}g -jar !{params.gatk_jar} -T MuTect2 -R !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} -I:normal !{tumor_normal_tag}!{params.suffix_normal}.bam -I:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam -o "!{tumor_normal_tag}_!{bed_tag}_calls.vcf" -L !{bed_tag}.bed
-	    touch !{tumor_normal_tag}_!{bed_tag}_calls_stats.txt
+            !{params.java} -Xmx!{params.mem}g -jar !{params.mutect2_jar} -T MuTect2 -R !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} -I:normal !{tumor_normal_tag}!{params.suffix_normal}.bam -I:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam -o "!{tumor_normal_tag}_!{bed_tag}_calls.vcf" -L !{bed_tag}.bed !{params.mutect_args}
+	    touch !{tumor_normal_tag}_!{bed_tag}_calls_stats.txt 
         else
-            !{params.java} -Xmx!{params.mem}g -jar !{params.mutect_path} --analysis_type MuTect --reference_sequence !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} --intervals !{bed_tag}.bed --input_file:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam --input_file:normal !{tumor_normal_tag}!{params.suffix_normal}.bam --out "!{tumor_normal_tag}_!{bed_tag}_calls_stats.txt" --vcf "!{tumor_normal_tag}_!{bed_tag}_calls.vcf" !{params.mutect_args}
+            !{params.java} -Xmx!{params.mem}g -jar !{params.mutect_jar} --analysis_type MuTect --reference_sequence !{fasta_ref} --dbsnp !{params.dbsnp} --cosmic !{params.cosmic} --intervals !{bed_tag}.bed --input_file:tumor !{tumor_normal_tag}!{params.suffix_tumor}.bam --input_file:normal !{tumor_normal_tag}!{params.suffix_normal}.bam --out "!{tumor_normal_tag}_!{bed_tag}_calls_stats.txt" --vcf "!{tumor_normal_tag}_!{bed_tag}_calls.vcf" !{params.mutect_args}
     fi
     '''
 }
@@ -206,7 +211,7 @@ process mergeMuTectOutputs {
     mv header.txt !{tumor_normal_tag}_calls.vcf
 
     # MERGE TXT FILES if mutect1
-    if [ "!{params.mutect2}" != "true" ]
+    if [ "!{mutect_version}" != "2" ]
         then
           head -n2 `ls -1 *.txt | head -1` > header.txt
           sed -i '1,2d' *calls_stats.txt
