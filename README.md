@@ -20,6 +20,8 @@ Nextflow seamlessly integrates with GitHub hosted code repositories:
 
 `nextflow run iarcbioinfo/mutect-nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta --mutect_jar mutect.jar`
 
+If you specify option `--mutect2_jar` (GATK executable jar, which integrate mutect2) instead of `--mutect_jar`, the pipeline will automatically switched to mutect version 2.
+
 #### Help section
 You can print the help manual by providing `--help` in the execution command line:
 ```bash
