@@ -16,10 +16,9 @@
 
 
 #### Execution
-Either Nextflow is in your path and you have relevant rights on the script:   
-`./mutect.nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta`  
-Or :  
-`nextflow run mutect.nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta`
+Nextflow seamlessly integrates with GitHub hosted code repositories:
+
+`nextflow run iarcbioinfo/mutect-nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta --mutect_jar mutect.jar`
 
 #### Help section
 You can print the help manual by providing `--help` in the execution command line:
@@ -49,3 +48,5 @@ profiles {
                 }
         }
 ```
+#### pipeline DAG
+<img align="center" src="https://cloud.githubusercontent.com/assets/13535602/22242881/5acb8852-e225-11e6-8954-dc0443729ccc.png" width="600">
