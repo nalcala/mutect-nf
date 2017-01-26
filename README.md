@@ -13,7 +13,7 @@
 	```bash
 	sudo mv nextflow /usr/local/bin
 	```
-
+3. Install [bedtools](http://bedtools.readthedocs.io/en/latest/content/installation.html) and move the executable file in your path.
 
 #### Execution
 Nextflow seamlessly integrates with GitHub hosted code repositories:
