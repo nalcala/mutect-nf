@@ -32,7 +32,7 @@ This shows details about optional and mandatory parameters provided by the user.
 #### BAM file format
 The tumor bam file format must be (`sample` `suffix_tumor` `.bam`) with `suffix_tumor` as `_T` by default and customizable in input (`--suffix_tumor`). (e.g. `sample1_T.bam`)
 The normal bam file format must be (`sample` `suffix_normal` `.bam`) with `suffix_normal` as `_N` by default and customizable in input (`--suffix_normal`). (e.g. `sample1_N.bam`).
-BAI indexes have to be present in the same location than their BAM mates.
+BAI indexes have to be present in the same location than their BAM mates, with the extension `bam.bai`.
 
 #### Global parameters
 ```mutect_path```, ```--dbsnp```, ```--cosmic```, and ```--ref``` are mandatory parameters but can be defined in your nextflow config file (```~/.nextflow/config``` or ```config``` in the working directory) and so not set as inputs.
