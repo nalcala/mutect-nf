@@ -1,7 +1,5 @@
 #! /usr/bin/env nextflow
 
-// usage : ./mutect.nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta --mutect_args " --force_output --force_alleles "
-
 params.help = null
 
 if (params.help) {
@@ -16,6 +14,9 @@ if (params.help) {
     log.info 'Mandatory arguments:'
     log.info '    --tumor_bam_folder   FOLDER                  Folder containing tumor BAM files to be called.'
     log.info '    --normal_bam_folder  FOLDER                  Folder containing matched normal BAM files.'
+    log.info '    OR'
+    log.info '    --tn_file            FILE                    Tab delimited text file with two columns called tumor and normal'
+    log.info '                                                 where each line contains the path of two matched BAM files.'    
     log.info '    --ref                FILE (with index)       Reference fasta file.'
     log.info '    --mutect_jar         FILE                    mutect*.jar explicit path.'
     log.info '    OR'
@@ -60,44 +61,52 @@ if (params.cosmic == "") { cosmic_option = "" } else { cosmic_option = "--cosmic
 params.mutect_jar = null
 params.mutect2_jar = null
 mutect_version = params.mutect_jar ? 1 : 2
+params.tn_file = null
+params.tumor_bam_folder = null
+params.normal_bam_folder = null
 
-// FOR TUMOR
-// recovering of bam files
-tumor_bams = Channel.fromPath( params.tumor_bam_folder+'/*'+params.suffix_tumor+'.bam' )
+if (params.tn_file) {
+    // FOR INPUT AS A TAB DELIMITED FILE
+    tn_bambai = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true).map{row -> [ file(row.tumor), file(row.tumor+'.bai') ,file(row.normal), file(row.normal+'.bai') ]}
+} else {
+    // FOR INPUT AS TWO FOLDER
+    // recovering of bam files
+    tumor_bams = Channel.fromPath( params.tumor_bam_folder+'/*'+params.suffix_tumor+'.bam' )
               .ifEmpty { error "Cannot find any bam file in: ${params.tumor_bam_folder}" }
               .map {  path -> [ path.name.replace("${params.suffix_tumor}.bam",""), path ] }
 
-// recovering of bai files
-tumor_bais = Channel.fromPath( params.tumor_bam_folder+'/*'+params.suffix_tumor+'.bam.bai' )
+    // recovering of bai files
+    tumor_bais = Channel.fromPath( params.tumor_bam_folder+'/*'+params.suffix_tumor+'.bam.bai' )
               .ifEmpty { error "Cannot find any bai file in: ${params.tumor_bam_folder}" }
               .map {  path -> [ path.name.replace("${params.suffix_tumor}.bam.bai",""), path ] }
 
-// building bam-bai pairs
-tumor_bam_bai = tumor_bams
+    // building bam-bai pairs
+    tumor_bam_bai = tumor_bams
     	      .phase(tumor_bais)
     	      .map { tumor_bam, tumor_bai -> [ tumor_bam[0], tumor_bam[1], tumor_bai[1] ] }
 
-// FOR NORMAL
-// recovering of bam files
-normal_bams = Channel.fromPath( params.normal_bam_folder+'/*'+params.suffix_normal+'.bam' )
+    // FOR NORMAL
+    // recovering of bam files
+    normal_bams = Channel.fromPath( params.normal_bam_folder+'/*'+params.suffix_normal+'.bam' )
               .ifEmpty { error "Cannot find any bam file in: ${params.normal_bam_folder}" }
               .map {  path -> [ path.name.replace("${params.suffix_normal}.bam",""), path ] }
 
-// recovering of bai files
-normal_bais = Channel.fromPath( params.normal_bam_folder+'/*'+params.suffix_normal+'.bam.bai' )
+    // recovering of bai files
+    normal_bais = Channel.fromPath( params.normal_bam_folder+'/*'+params.suffix_normal+'.bam.bai' )
               .ifEmpty { error "Cannot find any bai file in: ${params.normal_bam_folder}" }
               .map {  path -> [ path.name.replace("${params.suffix_normal}.bam.bai",""), path ] }
 
-// building bam-bai pairs
-normal_bam_bai = normal_bams
+    // building bam-bai pairs
+    normal_bam_bai = normal_bams
     	      .phase(normal_bais)
     	      .map { normal_bam, normal_bai -> [ normal_bam[0], normal_bam[1], normal_bai[1] ] }
 
-// building 4-uplets corresponding to {tumor_bam, tumor_bai, normal_bam, normal_bai}
-tn_bambai = tumor_bam_bai
+    // building 4-uplets corresponding to {tumor_bam, tumor_bai, normal_bam, normal_bai}
+    tn_bambai = tumor_bam_bai
 	      .phase(normal_bam_bai)
 	      .map {tumor_bb, normal_bb -> [ tumor_bb[1], tumor_bb[2], normal_bb[1], normal_bb[2] ] }
-// here each element X of tn_bambai channel is a 4-uplet. X[0] is the tumor bam, X[1] the tumor bai, X[2] the normal bam and X[3] the normal bai.
+    // here each element X of tn_bambai channel is a 4-uplet. X[0] is the tumor bam, X[1] the tumor bai, X[2] the normal bam and X[3] the normal bai.
+}
 
 /* manage input positions to call (bed or region or whole-genome) */
   if (params.region) {
