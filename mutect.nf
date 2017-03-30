@@ -15,6 +15,7 @@ if (params.help) {
     log.info '    --tumor_bam_folder   FOLDER                  Folder containing tumor BAM files to be called.'
     log.info '    --normal_bam_folder  FOLDER                  Folder containing matched normal BAM files.'
     log.info '    OR'
+    log.info '    --bam_folder         FILE                    Folder containing all bam files.'
     log.info '    --tn_file            FILE                    Tab delimited text file with two columns called tumor and normal'
     log.info '                                                 where each line contains the path of two matched BAM files.'    
     log.info '    --ref                FILE (with index)       Reference fasta file.'
@@ -62,12 +63,13 @@ params.mutect_jar = null
 params.mutect2_jar = null
 mutect_version = params.mutect_jar ? 1 : 2
 params.tn_file = null
+params.bam_folder = "./"
 params.tumor_bam_folder = null
 params.normal_bam_folder = null
 
 if (params.tn_file) {
     // FOR INPUT AS A TAB DELIMITED FILE
-    tn_bambai = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true).map{row -> [ file(row.tumor), file(row.tumor+'.bai') ,file(row.normal), file(row.normal+'.bai') ]}
+    tn_bambai = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true).map{row -> [ file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai') ,file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ]}
 } else {
     // FOR INPUT AS TWO FOLDER
     // recovering of bam files
@@ -136,7 +138,7 @@ process bed {
 
       else if (input_region == 'whole_genome')
       '''
-      cat !{fasta_ref_fai} | awk '{print $1"	"0"	"$2 }' > temp.bed
+      cat !{fasta_ref_fai} | awk '{print $1"	"1"	"$2 }' > temp.bed
       '''
   }
 
@@ -148,7 +150,7 @@ process split_bed {
       file bed from outbed
 
       output:
-      file '*_regions.bed' into split_bed, count_split_bed mode flatten
+      file '*_regions.list' into split_bed, count_split_bed mode flatten
 
       shell:
       '''
