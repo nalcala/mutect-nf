@@ -162,8 +162,7 @@ process split_bed {
 
 process mutect {
 
-    memory { params.mem+'.GB' * task.attempt }
-    errorStrategy 'retry'
+    memory params.mem+'GB' 
 
     tag { printed_tag }
 
