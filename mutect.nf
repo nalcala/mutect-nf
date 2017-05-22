@@ -150,7 +150,7 @@ process split_bed {
       file bed from outbed
 
       output:
-      file '*_regions.list' into split_bed, count_split_bed mode flatten
+      file '*_regions.bed' into split_bed, count_split_bed mode flatten
 
       shell:
       '''
