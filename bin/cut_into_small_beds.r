@@ -20,7 +20,7 @@ nb_pieces=as.numeric(commandArgs(TRUE)[1])
 bed=read.table(pipe('cat /dev/stdin'),stringsAsFactors = F)
 bed_cum_size=cumsum(bed[,3]-bed[,2]+1)
 if(nb_pieces>bed_cum_size[length(bed_cum_size)]) nb_pieces=bed_cum_size[length(bed_cum_size)]
-if(nb_pieces==1) { cat(paste(bed[,1],":",bed[,2],"-",bed[,3], sep=""), sep="\n", file=paste(bed[1,1],"_",bed[1,2],"-",bed[dim(bed)[1],1],"_",bed[dim(bed)[1],3],"_regions.list",sep="")) } else {
+if(nb_pieces==1) { cat(paste(bed[,1],":",bed[,2],"-",bed[,3], sep=""), sep="\n", file=paste(bed[1,1],"_",bed[1,2],"-",bed[dim(bed)[1],1],"_",bed[dim(bed)[1],3],"_regions.bed",sep="")) } else {
   cut_cum_size=floor(seq(1,bed_cum_size[length(bed_cum_size)],l=nb_pieces+1))
   for(k in 1:(nb_pieces-1) ) {
     cur_size = cut_cum_size[k+1]
@@ -35,13 +35,13 @@ if(nb_pieces==1) { cat(paste(bed[,1],":",bed[,2],"-",bed[,3], sep=""), sep="\n",
       ends=bed[1:cut_data[1,i],3]
       ends[length(ends)]=cut_data[2,i]-1
       if(cut_data[2,i]-1<starts[length(starts)]) { chrs=chrs[1:(length(chrs)-1)];starts=starts[1:(length(starts)-1)];ends=ends[1:(length(ends)-1)] }
-      cat(paste(chrs,"\t",starts,"\t",ends, sep=""), sep="\n", file=paste(chrs[1],"_",starts[1],"-",chrs[length(chrs)],"_",ends[length(ends)],"_regions.list",sep=""))
+      cat(paste(chrs,"\t",starts,"\t",ends, sep=""), sep="\n", file=paste(chrs[1],"_",starts[1],"-",chrs[length(chrs)],"_",ends[length(ends)],"_regions.bed",sep=""))
     } else if (i==nb_pieces) {
       chrs=bed[cut_data[1,i-1]:dim(bed)[1],1]
       starts=bed[cut_data[1,i-1]:dim(bed)[1],2]
       starts[1]=cut_data[2,i-1]
       ends=bed[cut_data[1,i-1]:dim(bed)[1],3]
-      cat(paste(chrs,"\t",starts,"\t",ends, sep=""), sep="\n", file=paste(chrs[1],"_",starts[1],"-",chrs[length(chrs)],"_",ends[length(ends)],"_regions.list",sep=""))
+      cat(paste(chrs,"\t",starts,"\t",ends, sep=""), sep="\n", file=paste(chrs[1],"_",starts[1],"-",chrs[length(chrs)],"_",ends[length(ends)],"_regions.bed",sep=""))
     } else {
       chrs=bed[cut_data[1,i-1]:cut_data[1,i],1]
       starts=bed[cut_data[1,i-1]:cut_data[1,i],2]
@@ -49,7 +49,7 @@ if(nb_pieces==1) { cat(paste(bed[,1],":",bed[,2],"-",bed[,3], sep=""), sep="\n",
       starts[1]=cut_data[2,i-1]
       ends[length(ends)]=cut_data[2,i]-1
       if(cut_data[2,i]-1<starts[length(starts)]){ chrs=chrs[1:(length(chrs)-1)];starts=starts[1:(length(starts)-1)];ends=ends[1:(length(ends)-1)] }
-      cat(paste(chrs,"\t",starts,"\t",ends, sep=""), sep="\n", file=paste(chrs[1],"_",starts[1],"-",chrs[length(chrs)],"_",ends[length(ends)],"_regions.list",sep=""))
+      cat(paste(chrs,"\t",starts,"\t",ends, sep=""), sep="\n", file=paste(chrs[1],"_",starts[1],"-",chrs[length(chrs)],"_",ends[length(ends)],"_regions.bed",sep=""))
     }
   }
 }
