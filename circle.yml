@@ -1,0 +1,24 @@
+machine:
+  services:
+    - docker
+  post:
+    - wget -qO- get.nextflow.io | bash ; chmod 755 nextflow ; sudo ln -s ~/nextflow /usr/local/bin/
+    - wget https://github.com/MaxUlysse/CAW-containers/blob/master/containers/gatk/GenomeAnalysisTK-3.7.tar.bz2?raw=true
+test:
+  override:
+    - |
+      mv GenomeAnalysisTK-3.7.tar.bz2?raw=true GenomeAnalysisTK.jar.tar.bz2 && tar -jxf GenomeAnalysisTK.jar.tar.bz2
+    - |
+      chmod +x GenomeAnalysisTK.jar
+    - |
+      cd ~/mutect-nf
+      docker build -t iarcbioinfo/mutect-nf .
+    - | #use bed TP53_all.bed
+      nextflow run ~/mutect-nf/mutect.nf --help
+    - | #use bed TP53_all.bed
+      nextflow run ~/mutect-nf/mutect.nf -with-docker iarcbioinfo/mutect-nf --help
+deployment:
+  git:
+    branch: [master, dev]
+    commands:
+      - chmod +x deploy.sh && ./deploy.sh
