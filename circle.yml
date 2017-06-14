@@ -7,6 +7,8 @@ machine:
 test:
   override:
     - |
+      pwd
+    - |
       mv GenomeAnalysisTK-3.7.tar.bz2?raw=true GenomeAnalysisTK.jar.tar.bz2 && tar -jxf GenomeAnalysisTK.jar.tar.bz2
     - |
       chmod +x GenomeAnalysisTK.jar
