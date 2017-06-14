@@ -5,20 +5,18 @@ machine:
     - wget -qO- get.nextflow.io | bash ; chmod 755 nextflow ; sudo ln -s ~/nextflow /usr/local/bin/
     - wget https://github.com/MaxUlysse/CAW-containers/blob/master/containers/gatk/GenomeAnalysisTK-3.7.tar.bz2?raw=true
     - git clone https://github.com/IARCbioinfo/data_test.git
+    - wget https://github.com/broadinstitute/mutect/releases/download/1.1.5/muTect-1.1.5-bin.zip
 test:
   override:
+    - |
+      cd ~ && unzip muTect-1.1.5-bin.zip && /usr/lib/jvm/jdk1.7.0/bin/java muTect-1.1.5.jar -jar --help
     - |
       cd ~ && mv GenomeAnalysisTK-3.7.tar.bz2?raw=true GenomeAnalysisTK.jar.tar.bz2 && tar -jxf GenomeAnalysisTK.jar.tar.bz2
     - |
       cd ~ && chmod +x GenomeAnalysisTK.jar && java -jar GenomeAnalysisTK.jar --help
     - |
-      cd ~
+      cd ~ && nextflow run iarcbioinfo/mutect-nf --tumor_bam_folder ~/data_test/BAM/ --normal_bam_folder ~/data_test/BAM/ --bed ~/data/test/TP53_exon2_11.bed --ref ~/data_test/17.fasta.gz --mutect_jar mutect.jar
     - | #use bed TP53_all.bed
       nextflow run ~/mutect-nf/mutect.nf --help
     - | #use bed TP53_all.bed
       nextflow run ~/mutect-nf/mutect.nf --help
-deployment:
-  git:
-    branch: [master, dev]
-    commands:
-      - chmod +x deploy.sh && ./deploy.sh
