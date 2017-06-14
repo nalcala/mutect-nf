@@ -17,9 +17,9 @@ test:
     - | #Test GATK3.7
       cd ~ && chmod +x GenomeAnalysisTK.jar && java -jar GenomeAnalysisTK.jar --help
     - | #Launch muTect-1
-      nextflow run ~/mutect-nf/mutect.nf --tumor_bam_folder ~/data_test/BAM/ --normal_bam_folder ~/data_test/BAM/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect_jar ~/muTect-1.1.5.jar --nsplit 2 --java /usr/lib/jvm/jdk1.7.0/bin/java
+      nextflow run ~/mutect-nf/mutect.nf --tumor_bam_folder ~/data_test/BAM/ --normal_bam_folder ~/data_test/test/BAM/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect_jar ~/muTect-1.1.5.jar --nsplit 2 --java /usr/lib/jvm/jdk1.7.0/bin/java
     - | #Launch muTect-2
-      nextflow run ~/mutect-nf/mutect.nf --tumor_bam_folder ~/data_test/BAM/ --normal_bam_folder ~/data_test/BAM/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect2_jar ~/GenomeAnalysisTK.jar --nsplit 2 --out_folder mutect2_results
+      nextflow run ~/mutect-nf/mutect.nf --tumor_bam_folder ~/data_test/BAM/ --normal_bam_folder ~/data_test/test/BAM/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect2_jar ~/GenomeAnalysisTK.jar --nsplit 2 --out_folder mutect2_results
     - | #Check for results muTect-1
       ls ~/mutect-nf/mutect_results
     - | #Check for results muTect-2
