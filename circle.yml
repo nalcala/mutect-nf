@@ -7,6 +7,7 @@ machine:
     - git clone https://github.com/IARCbioinfo/data_test.git
     - wget https://github.com/broadinstitute/mutect/releases/download/1.1.5/muTect-1.1.5-bin.zip
     - wget https://github.com/arq5x/bedtools2/releases/download/v2.25.0/bedtools-2.25.0.tar.gz; tar -zxvf bedtools-2.25.0.tar.gz; cd bedtools2; make
+    - wget https://cran.r-project.org/src/base/R-3/R-3.4.0.tar.gz; tar -zxvf R-3.4.0.tar.gz;
 test:
   override:
     - | #Unzip muTect-1 and test it with good java version (1.7)
