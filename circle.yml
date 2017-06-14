@@ -7,11 +7,11 @@ machine:
 test:
   override:
     - |
-      pwd
+      cd ~
     - |
       mv GenomeAnalysisTK-3.7.tar.bz2?raw=true GenomeAnalysisTK.jar.tar.bz2 && tar -jxf GenomeAnalysisTK.jar.tar.bz2
     - |
-      chmod +x GenomeAnalysisTK.jar
+      chmod +x GenomeAnalysisTK.jar && java -jar GenomeAnalysisTK.jar --help
     - |
       cd ~/mutect-nf
       docker build -t iarcbioinfo/mutect-nf .
