@@ -26,7 +26,3 @@ test:
       ls ~/mutect-nf/mutect_results
     - | #Check for results muTect-2
       ls ~/mutect-nf/mutect2_results
-    - | #Check if display muTect-1 help
-      nextflow run ~/mutect-nf/mutect.nf --help
-    - | #Move the image
-      cp dag.png dag.html ~/mutect-nf/
