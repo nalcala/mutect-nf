@@ -6,7 +6,7 @@ machine:
     - wget https://github.com/MaxUlysse/CAW-containers/blob/master/containers/gatk/GenomeAnalysisTK-3.7.tar.bz2?raw=true
     - git clone https://github.com/IARCbioinfo/data_test.git
     - wget https://github.com/broadinstitute/mutect/releases/download/1.1.5/muTect-1.1.5-bin.zip
-    - wget https://github.com/arq5x/bedtools2/releases/download/v2.25.0/bedtools-2.25.0.tar.gz; tar -zxvf bedtools-2.25.0.tar.gz; cd bedtools2; make; sudo ln -s ~/bedtools2/bin/* /usr/local/bin
+    - sudo apt-get install bedtools
     - sudo add-apt-repository "deb http://cran.rstudio.com//bin/linux/debian jessie-cran3/"; sudo apt-get install --no-install-recommends -y r-base
 test:
   override:
@@ -17,9 +17,9 @@ test:
     - | #Test GATK3.7
       cd ~ && chmod +x GenomeAnalysisTK.jar && java -jar GenomeAnalysisTK.jar --help
     - | #Launch muTect-1
-      nextflow run ~/mutect-nf/mutect.nf --tumor_bam_folder ~/data_test/BAM/ --normal_bam_folder ~/data_test/test/BAM/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect_jar ~/muTect-1.1.5.jar --nsplit 2 --java /usr/lib/jvm/jdk1.7.0/bin/java
+      nextflow run ~/mutect-nf/mutect.nf --tumor_bam_folder ~/data_test/BAM/test/ --normal_bam_folder ~/data_test/BAM/test/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect_jar ~/muTect-1.1.5.jar --nsplit 2 --java /usr/lib/jvm/jdk1.7.0/bin/java
     - | #Launch muTect-2
-      nextflow run ~/mutect-nf/mutect.nf --tumor_bam_folder ~/data_test/BAM/ --normal_bam_folder ~/data_test/test/BAM/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect2_jar ~/GenomeAnalysisTK.jar --nsplit 2 --out_folder mutect2_results
+      nextflow run ~/mutect-nf/mutect.nf --tumor_bam_folder ~/data_test/BAM/test/ --normal_bam_folder ~/data_test/BAM/test/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect2_jar ~/GenomeAnalysisTK.jar --nsplit 2 --out_folder mutect2_results
     - | #Check for results muTect-1
       ls ~/mutect-nf/mutect_results
     - | #Check for results muTect-2
