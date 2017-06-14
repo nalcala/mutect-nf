@@ -38,7 +38,7 @@ if (params.help) {
     log.info '    --java               PATH                    Name of the JAVA command  (default: java).'
     log.info ''
     log.info ''
-    exit 1
+    exit 0
 }
 
 fasta_ref = file(params.ref)
