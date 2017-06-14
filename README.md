@@ -52,3 +52,6 @@ profiles {
 ```
 #### pipeline DAG
 <img align="center" src="https://cloud.githubusercontent.com/assets/13535602/22242881/5acb8852-e225-11e6-8954-dc0443729ccc.png" width="600">
+
+## Directed Acyclic Graph
+[![DAG](dag.png)](http://htmlpreview.github.io/?https://github.com/IARCbioinfo/mutect-nf/blob/dev/dag.html)
