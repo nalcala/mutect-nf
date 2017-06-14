@@ -8,15 +8,15 @@ machine:
     - wget https://github.com/broadinstitute/mutect/releases/download/1.1.5/muTect-1.1.5-bin.zip
 test:
   override:
-    - |
-      cd ~ && unzip muTect-1.1.5-bin.zip && /usr/lib/jvm/jdk1.7.0/bin/java muTect-1.1.5.jar -jar --help
-    - |
+    - | #Unzip muTect-1 and test it with good java version (1.7)
+      cd ~ && unzip muTect-1.1.5-bin.zip && /usr/lib/jvm/jdk1.7.0/bin/java -jar muTect-1.1.5.jar --help
+    - | #Rename and untar GATK3.7
       cd ~ && mv GenomeAnalysisTK-3.7.tar.bz2?raw=true GenomeAnalysisTK.jar.tar.bz2 && tar -jxf GenomeAnalysisTK.jar.tar.bz2
-    - |
+    - | #Test GATK3.7
       cd ~ && chmod +x GenomeAnalysisTK.jar && java -jar GenomeAnalysisTK.jar --help
-    - |
-      cd ~ && nextflow run iarcbioinfo/mutect-nf --tumor_bam_folder ~/data_test/BAM/ --normal_bam_folder ~/data_test/BAM/ --bed ~/data/test/TP53_exon2_11.bed --ref ~/data_test/17.fasta.gz --mutect_jar mutect.jar
-    - | #use bed TP53_all.bed
-      nextflow run ~/mutect-nf/mutect.nf --help
-    - | #use bed TP53_all.bed
+    - | #Launch muTect-1
+      nextflow run iarcbioinfo/mutect-nf --tumor_bam_folder ~/data_test/BAM/ --normal_bam_folder ~/data_test/BAM/ --bed ~/data/test/TP53_exon2_11.bed --ref ~/data_test/17.fasta.gz --mutect_jar ~/muTect-1.1.5.jar --nsplit 2 --java /usr/lib/jvm/jdk1.7.0/bin/java
+    - | #Check for results
+      ls ~/mutect-nf/mutect_results
+    - | #Check if display muTect-1 help
       nextflow run ~/mutect-nf/mutect.nf --help
