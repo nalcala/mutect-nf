@@ -1,5 +1,5 @@
 #!/bin/bash
-cd ~/mutect-nf-nf/
+cd ~/mutect-nf/
 git config --global user.email "robitaillea@students.iarc.fr"
 git add dag.png
 git add dag.html
