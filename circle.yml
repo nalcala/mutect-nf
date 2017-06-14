@@ -3,22 +3,20 @@ machine:
     - docker
   post:
     - wget -qO- get.nextflow.io | bash ; chmod 755 nextflow ; sudo ln -s ~/nextflow /usr/local/bin/
-    - wget https://github.com/MaxUlysse/CAW-containers/blob/master/containers/gatk/GenomeAnalysisTK-3.7.tar.bz2?raw=true && pwd && ls
+    - wget https://github.com/MaxUlysse/CAW-containers/blob/master/containers/gatk/GenomeAnalysisTK-3.7.tar.bz2?raw=true
+    - git clone https://github.com/IARCbioinfo/data_test.git
 test:
   override:
     - |
-      pwd
+      cd ~ && mv GenomeAnalysisTK-3.7.tar.bz2?raw=true GenomeAnalysisTK.jar.tar.bz2 && tar -jxf GenomeAnalysisTK.jar.tar.bz2
     - |
-      cd ~ && pwd && ls && mv GenomeAnalysisTK-3.7.tar.bz2?raw=true GenomeAnalysisTK.jar.tar.bz2 && tar -jxf GenomeAnalysisTK.jar.tar.bz2
+      cd ~ && chmod +x GenomeAnalysisTK.jar && java -jar GenomeAnalysisTK.jar --help
     - |
-      chmod +x GenomeAnalysisTK.jar && java -jar GenomeAnalysisTK.jar --help
-    - |
-      cd ~/mutect-nf
-      docker build -t iarcbioinfo/mutect-nf .
+      cd ~
     - | #use bed TP53_all.bed
       nextflow run ~/mutect-nf/mutect.nf --help
     - | #use bed TP53_all.bed
-      nextflow run ~/mutect-nf/mutect.nf -with-docker iarcbioinfo/mutect-nf --help
+      nextflow run ~/mutect-nf/mutect.nf --help
 deployment:
   git:
     branch: [master, dev]
