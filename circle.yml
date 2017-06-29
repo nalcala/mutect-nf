@@ -26,3 +26,8 @@ test:
       ls ~/mutect-nf/mutect_results
     - | #Check for results muTect-2
       ls ~/mutect-nf/mutect2_results
+deployment:
+  git:
+    branch: [master, dev]
+    commands:
+    - chmod +x deploy.sh && ./deploy.sh
