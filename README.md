@@ -51,4 +51,4 @@ profiles {
         }
 ```
 ## Directed Acyclic Graph
-[![DAG](dag.png)](http://htmlpreview.github.io/?https://github.com/IARCbioinfo/platypus-nf/blob/dev/dag.html)
+[![DAG](dag.png)](http://htmlpreview.github.io/?https://github.com/IARCbioinfo/mutect-nf/blob/dev/dag.html)
