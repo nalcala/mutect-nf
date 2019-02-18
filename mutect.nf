@@ -182,6 +182,7 @@ process mutect {
 
     shell:
     tumor_normal_tag = bed_tn[0].baseName.replace(params.suffix_tumor,"")
+    tumor_normal_tag = bed_tn[0].baseName.replace(params.suffix_tumor,"") + "_vs_" + bed_tn[2].baseName.replace(params.suffix_normal,"")
     bed_tag = bed_tn[4].baseName //bed_tn = bamN,baiN,bamT,baiT,bed
     printed_tag = tumor_normal_tag + "_" + bed_tag
     '''
