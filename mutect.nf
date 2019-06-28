@@ -34,7 +34,7 @@ if (params.help) {
     log.info '    --suffix_tumor       STRING                  Suffix identifying tumor bam (default: "_T").'
     log.info '    --suffix_normal      STRING                  Suffix identifying normal bam (default: "_N").'
     log.info '    --mem                INTEGER                 Java memory passed to mutect.'
-    log.info '    --out_folder         FOLDER                  Output folder (default: mutect_results).'
+    log.info '    --output_folder         FOLDER                  Output folder (default: mutect_results).'
     log.info '    --java               PATH                    Name of the JAVA command  (default: java).'
     log.info ''
     log.info ''
@@ -49,27 +49,54 @@ fasta_ref_dict = file( params.ref.replace(".fasta",".dict").replace(".fa",".dict
 params.suffix_tumor = "_T"
 params.suffix_normal = "_N"
 params.mem = 8
-params.out_folder = "mutect_results"
+params.output_folder = "mutect_results"
 params.mutect_args = ""
 params.nsplit = 1
 params.region = null
 params.bed = null
 params.java = "java"
-params.dbsnp = ""
+params.known_snp = ""
 params.cosmic = ""
-if (params.dbsnp == "") { dbsnp_option = "" } else { dbsnp_option = "--dbsnp" }
 if (params.cosmic == "") { cosmic_option = "" } else { cosmic_option = "--cosmic" }
 params.mutect_jar = null
 params.mutect2_jar = null
+params.gatk_version= "4"
 mutect_version = params.mutect_jar ? 1 : 2
 params.tn_file = null
 params.bam_folder = "./"
 params.tumor_bam_folder = null
 params.normal_bam_folder = null
+if (params.known_snp == "") { known_snp_option = "" } else {
+        if(params.gatk_version == "4"){
+                known_snp_option = "--germline-resource"
+        }else{
+                known_snp_option = "--dbsnp"
+        }
+}
+params.PON = ""
+if (params.PON == "") { PON_option = "" } else { PON_option = "--panel-of-normals" }
+params.estimate_contamination = null
+params.genotype = null
 
 if (params.tn_file) {
     // FOR INPUT AS A TAB DELIMITED FILE
-    tn_bambai = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true).map{row -> [ file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai') ,file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ]}
+//    tn_bambai = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true).map{row -> [row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai') ,file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ]}
+
+     pairs = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
+                       .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ] }
+
+	pairs2 = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
+                       .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ] } //.subscribe { row -> println "${row}" }
+
+    tn_bambai2 = pairs2.groupTuple(by: 0)
+                              .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0]  ) }
+                              //.subscribe { row -> println "${row}" }
+
+	
+
+     tn_bambai = pairs.groupTuple(by: 0)
+                              .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0]  ) }
+                              //.subscribe { row -> println "${row}" }
 } else {
     // FOR INPUT AS TWO FOLDER
     // recovering of bam files
@@ -110,6 +137,8 @@ if (params.tn_file) {
     // here each element X of tn_bambai channel is a 4-uplet. X[0] is the tumor bam, X[1] the tumor bai, X[2] the normal bam and X[3] the normal bai.
 }
 
+
+
 /* manage input positions to call (bed or region or whole-genome) */
   if (params.region) {
       input_region = 'region'
@@ -120,6 +149,58 @@ if (params.tn_file) {
       input_region = 'whole_genome'
 }
 
+//genotyping mode
+if(params.genotype){
+
+    pairs2 = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
+                       .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf) ] }
+
+    tn_bambaivcf2 = pairs2.groupTuple(by: 0)
+                              .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0] , row[5][0]  ) }
+                              .subscribe { row -> println "${row}" }
+
+
+pairs = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
+                       .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf) ] }
+
+    tn_bambaivcf = pairs.groupTuple(by: 0)
+                              .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0] , row[5][0]  ) }
+
+
+process genotype{
+    memory params.mem+'GB'
+    cpus '2'
+    tag { sample }
+
+    input:
+    set val(sample), file(bamT), file(baiT), file(bamN), file(baiN), file(vcf)  from tn_bambaivcf
+    file fasta_ref
+    file fasta_ref_fai
+    file fasta_ref_dict
+
+    output:
+    set val(sample), file("${printed_tag}*.vcf") into mutect_output1
+    set val(sample), file("${printed_tag}*stats*") into mutect_output2
+
+    publishDir params.output_folder, mode: 'move'
+
+    shell:
+    printed_tag = "${sample}"// + bed_tag
+    if("${params.gatk_version}" == "4"){
+    input_t=""
+    for( bamTi in bamT ){
+        input_t=input_t+" -I ${bamTi}"
+    }
+    '''
+    !{baseDir}/bin/prep_vcf_bed.sh
+    normal_name=`sambamba view -H !{bamN} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
+    gatk IndexFeatureFile -F !{vcf}
+    gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{PON_option} !{params.PON} !{input_t} -I !{bamN} -normal $normal_name -O !{printed_tag}_genotyped.vcf -L regions.bed !{params.mutect_args} --alleles !{vcf} --genotype-filtered-alleles --genotype-germline-sites --genotype-pon-sites --active-probability-threshold 0.000 --min-base-quality-score 0 --initial-tumor-lod -100000000000  --tumor-lod-to-emit -100000000000 --force-active --dont-trim-active-regions
+    '''
+    }
+}
+
+}else{
 /* process to create a bed file from region or from faidx if whole-genome, otherwise return the input bed file */
 process bed {
       output:
@@ -160,39 +241,59 @@ process split_bed {
 
 //println count_split_bed.count().val
 
-process mutect {
+( split_bed1 , split_bed2) = split_bed.into(2)
 
+
+tn_bambai2.spread(split_bed2)
+	  .subscribe{ row -> println "${row}"}
+
+process mutect {
     memory params.mem+'GB' 
+    cpus '2'
 
     tag { printed_tag }
 
     input:
-    val mutect_version
-    val dbsnp_option
-    val cosmic_option
-    file bed_tn from tn_bambai.spread(split_bed)
+    set val(sample), file(bamT), file(baiT), file(bamN), file(baiN)  from tn_bambai
+    each bed from split_bed1
     file fasta_ref
     file fasta_ref_fai
     file fasta_ref_gzi
     file fasta_ref_dict
 
     output:
-    set val(tumor_normal_tag), file("${tumor_normal_tag}_${bed_tag}_calls.vcf") into mutect_output1
-    set val(tumor_normal_tag), file("${tumor_normal_tag}_${bed_tag}_calls_stats.txt") into mutect_output2
+    set val(sample), file("${printed_tag}_*.vcf") into mutect_output1
+    set val(sample), file("${printed_tag}*stats*") into mutect_output2
 
     shell:
-    tumor_normal_tag = bed_tn[0].baseName.replace(params.suffix_tumor,"")
-    bed_tag = bed_tn[4].baseName //bed_tn = bamN,baiN,bamT,baiT,bed
-    printed_tag = tumor_normal_tag + "_" + bed_tag
+    bed_tag0 = bed.baseName 
+    bed_tag = bed_tag0.replaceAll("[^a-zA-Z0-9 _-]+","")
+    printed_tag = "${sample}_" + bed_tag
+    if("${params.gatk_version}" == "4"){
+    input_t=""
+    for( bamTi in bamT ){
+	input_t=input_t+" -I ${bamTi}"
+    }
+    if(params.genotype){
+	genot=""
+    }else{
+	genot=" "
+    }
+    '''
+    normal_name=`sambamba view -H !{bamN} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
+    gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{PON_option} !{params.PON} !{input_t} -I !{bamN} -normal $normal_name -O !{printed_tag}_calls.vcf -L !{bed} !{params.mutect_args}
+    '''
+    }else{
     '''
     if [ "!{mutect_version}" == "2" ]
-        then
-            !{params.java} -Xmx!{params.mem}g -jar !{params.mutect2_jar} -T MuTect2 -R !{fasta_ref} !{dbsnp_option} !{params.dbsnp} !{cosmic_option} !{params.cosmic} -I:normal !{bed_tn[2]} -I:tumor !{bed_tn[0]} -o "!{tumor_normal_tag}_!{bed_tag}_calls.vcf" -L !{bed_tn[4]} !{params.mutect_args}
-	    touch !{tumor_normal_tag}_!{bed_tag}_calls_stats.txt 
-        else
-            !{params.java} -Xmx!{params.mem}g -jar !{params.mutect_jar} --analysis_type MuTect --reference_sequence !{fasta_ref} !{dbsnp_option} !{params.dbsnp} !{cosmic_option} !{params.cosmic} --intervals !{bed_tn[4]} --input_file:tumor !{bed_tn[0]} --input_file:normal !{bed_tn[2]} --out "!{tumor_normal_tag}_!{bed_tag}_calls_stats.txt" --vcf "!{tumor_normal_tag}_!{bed_tag}_calls.vcf" !{params.mutect_args}
+		        then
+		            !{params.java} -Xmx!{params.mem}g -jar !{params.mutect2_jar} -T MuTect2  -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{cosmic_option} !{params.cosmic} -I:normal !{bamN} -I:tumor !{bamT} -o "!{sample}_!{bed_tag}_calls.vcf" -L !{bed} !{params.mutect_args}
+			    touch !{sample}_!{bed_tag}_calls_stats.txt 
+	        	else
+	        	    !{params.java} -Xmx!{params.mem}g --analysis_type MuTect --reference_sequence !{fasta_ref} !{known_snp_option} !{params.known_snp} !{cosmic_option} !{params.cosmic} --intervals !{bed} --input_file:tumor !{bamT} --input_file:normal !{bamN} --out "!{sample}_!{bed_tag}_calls_stats.txt" --vcf "!{sample}_!{bed_tag}_calls.vcf" !{params.mutect_args}
     fi
     '''
+    }
 }
 
 beds_length = count_split_bed.count().val
@@ -201,17 +302,21 @@ process mergeMuTectOutputs {
 
     tag { tumor_normal_tag }
 
-    publishDir params.out_folder, mode: 'move'
+    publishDir params.output_folder, mode: 'copy'
 
     input:
     set val(tumor_normal_tag), file(vcf_files) from mutect_output1.groupTuple(size: beds_length)
     set val(tumor_normal_tag2), file(txt_files) from mutect_output2.groupTuple(size: beds_length)
 
     output:
-    file("${tumor_normal_tag}_calls.vcf") into res1
-    file("${tumor_normal_tag}_calls_stats.txt") optional true into res2
+    set val(tumor_normal_tag), file("${tumor_normal_tag}_calls.vcf"), file("${tumor_normal_tag}_calls.vcf.stats") into res_merged
 
     shell:
+    input_stats=""
+    for( txt in txt_files ){
+        input_stats=input_stats+" -stats ${txt}"
+    }
+
     '''
     # MERGE VCF FILES
     sed '/^#CHROM/q' `ls -1 *.vcf | head -1` > header.txt
@@ -230,9 +335,106 @@ process mergeMuTectOutputs {
     if [ "!{mutect_version}" != "2" ]
         then
           head -n2 `ls -1 *.txt | head -1` > header.txt
-          sed -i '1,2d' *calls_stats.txt
+          sed -i '1,2d' *calls.vcf.stats
           cat *calls_stats.txt >> header.txt
-          mv header.txt !{tumor_normal_tag}_calls_stats.txt
+          mv header.txt !{tumor_normal_tag}_calls.vcf.stats
+    fi  
+    if [ "!{mutect_version}" == "2" ] 
+        then
+	  gatk MergeMutectStats !{input_stats} -O !{tumor_normal_tag}_calls.vcf.stats
     fi  
     '''
+}
+
+if(mutect_version==2){
+	println("Filtering output")
+if(params.estimate_contamination){
+	//not working right now, the following is just a sketch based on gatk best practices
+	pairs4cont = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
+                       .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai') ] }
+
+	process ContaminationEstimationPileup {
+	    tag { tumor_normal_tag }
+
+	    publishDir params.output_folder, mode: 'move'
+
+	    input:
+	    set val(tumor_normal_tag), file(bam), file(bai) from pairs4cont
+
+	    output:
+	    set val(tumor_normal_tag), file("*.table") into pileups
+
+	    shell:
+	    '''
+	    gatk GetPileupSummaries -I !{bam} -V chr17_small_exac_common_3_grch38.vcf.gz -L chr17_small_exac_common_3_grch38.vcf.gz -O !{tumor_normal_tag}_getpileupsummaries.table
+	    '''
+	}
+
+	process ContaminationEstimation {
+	    tag { tumor_normal_tag }
+
+	    publishDir params.output_folder, mode: 'move'
+
+	    input:
+	    set val(tumor_normal_tag), file(pileup) from pileups
+
+	    output:
+	    file("*contamination.table") into contam
+
+	    shell:
+	    '''
+	    gatk CalculateContamination -I !{pileup} -tumor-segmentation segments.table -O !{tumor_normal_tag}_calculatecontamination.table
+	    '''
+	}
+}else{
+    pileups = [null,null,null]
+}
+
+process FilterMuTectOutputs {
+    tag { tumor_normal_tag }
+
+    input:
+    set val(tumor_normal_tag), file(vcf), file(stats) from res_merged
+    file fasta_ref
+    file fasta_ref_fai
+    file fasta_ref_gzi
+    file fasta_ref_dict
+
+    output:
+    set val(tumor_normal_tag), file("*filtered.vcf*") into res_filtered
+
+    publishDir params.output_folder, mode: 'copy'
+
+    shell:
+    if(params.estimate_contamination){
+	contam="--contamination-table contamination.table"
+    }else{
+	contam=" "	
+    }
+    '''
+    gatk FilterMutectCalls -R !{fasta_ref} -V !{vcf} !{contam} -O !{tumor_normal_tag}_filtered.vcf
+    '''
+}
+
+process FilterMuTectOutputsOnPass {
+    tag { tumor_normal_tag }
+
+    input:
+    set val(tumor_normal_tag), file(vcf_filtered) from res_filtered
+
+    output:
+    file("*_PASS.vcf*") into res_filtered_PASS
+
+    publishDir params.output_folder, mode: 'copy'
+
+    shell:
+    vcf_name = vcf_filtered[0].baseName
+    '''
+    bcftools view -f PASS -O z !{vcf_filtered[0]} > !{vcf_name}_PASS.vcf.gz
+    bcftools index -t !{vcf_name}_PASS.vcf.gz
+    '''
+}
+
+}
+
 }
