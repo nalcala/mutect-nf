@@ -86,6 +86,7 @@ if (params.PON) {
 }
 params.estimate_contamination = null
 params.genotype = null
+params.RNAseq_preproc = null
 
 if (params.tn_file) {
     // FOR INPUT AS A TAB DELIMITED FILE
@@ -158,9 +159,33 @@ if (params.tn_file) {
       input_region = 'whole_genome'
 }
 
+//pre-processing of RNAseq data
+if(params.RNAseq_preproc){
+    process genotype{
+    memory params.mem+'GB'
+    cpus params.cpus
+    tag { sample }
+
+    input:
+    set val(sample), file(bam), file(bai) from bam2preproc
+    file fasta_ref
+    file fasta_ref_fai
+    file fasta_ref_dict
+
+    output:
+    set val(sample), file("${printed_tag}*.bam") into bam
+
+    publishDir params.output_folder, mode: 'move'
+
+    shell:
+    '''
+    gatk SplitNCigarReads --java-options "-Xmx!{params.mem}G" --add-output-sam-program-record -R !{fasta_ref} -I !{bam} -O !{bam}_split.bam
+    '''
+    }
+}
+
 //genotyping mode
 if(params.genotype){
-
     pairs2 = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
                        .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf) ] }
 
