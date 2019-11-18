@@ -56,6 +56,9 @@ params.region = null
 params.bed = null
 params.java = "java"
 params.known_snp = ""
+params.snp_contam = "NO_FILE"
+snp_contam = file(params.snp_contam)
+snp_contam_tbi = file(params.snp_contam+'.tbi')
 params.cosmic = ""
 if (params.cosmic == "") { cosmic_option = "" } else { cosmic_option = "--cosmic" }
 params.mutect_jar = null
@@ -73,8 +76,14 @@ if (params.known_snp == "") { known_snp_option = "" } else {
                 known_snp_option = "--dbsnp"
         }
 }
-params.PON = ""
-if (params.PON == "") { PON_option = "" } else { PON_option = "--panel-of-normals" }
+params.PON = null
+if (params.PON) { 
+	PON = file(params.PON)
+	PON_tbi = file(params.PON+'.tbi')
+} else { 
+	PON = file('NO_FILE')
+	PON_tbi = file('NO_FILE2')
+}
 params.estimate_contamination = null
 params.genotype = null
 
@@ -177,6 +186,8 @@ process genotype{
     file fasta_ref
     file fasta_ref_fai
     file fasta_ref_dict
+    file PON
+    file PON_tbi
 
     output:
     set val(sample), file("${printed_tag}*.vcf") into mutect_output1
@@ -191,11 +202,16 @@ process genotype{
     for( bamTi in bamT ){
         input_t=input_t+" -I ${bamTi}"
     }
+    if (params.PON) { 
+        PON_option = "--panel-of-normals ${PON[0]}" 
+    } else { 
+        PON_option = "" 
+    }
     '''
     !{baseDir}/bin/prep_vcf_bed.sh
     normal_name=`sambamba view -H !{bamN} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
     gatk IndexFeatureFile -F !{vcf}
-    gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{PON_option} !{params.PON} !{input_t} -I !{bamN} -normal $normal_name -O !{printed_tag}_genotyped.vcf -L regions.bed !{params.mutect_args} --alleles !{vcf} --genotype-filtered-alleles --genotype-germline-sites --genotype-pon-sites --active-probability-threshold 0.000 --min-base-quality-score 0 --initial-tumor-lod -100000000000  --tumor-lod-to-emit -100000000000 --force-active --dont-trim-active-regions
+    gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{PON_option} !{input_t} -I !{bamN} -normal $normal_name -O !{printed_tag}_genotyped.vcf -L regions.bed !{params.mutect_args} --alleles !{vcf} --disable-read-filter NonChimericOriginalAlignmentReadFilter --disable-read-filter NotDuplicateReadFilter --disable-read-filter ReadLengthReadFilter --disable-read-filter GoodCigarReadFilter --disable-read-filter NonZeroReferenceLengthAlignmentReadFilter --dont-use-soft-clipped-bases --genotype-filtered-alleles --genotype-germline-sites --genotype-pon-sites --active-probability-threshold 0.000 --min-base-quality-score 0 --initial-tumor-lod -100000000000  --tumor-lod-to-emit -100000000000 --force-active --dont-trim-active-regions
     '''
     }
 }
@@ -258,12 +274,14 @@ process mutect {
     each bed from split_bed1
     file fasta_ref
     file fasta_ref_fai
-    file fasta_ref_gzi
     file fasta_ref_dict
+    file PON
+    file PON_tbi
 
     output:
     set val(sample), file("${printed_tag}_*.vcf") into mutect_output1
     set val(sample), file("${printed_tag}*stats*") into mutect_output2
+    set val(sample), file("*_f1r2.tar.gz") into f1r2
 
     shell:
     bed_tag0 = bed.baseName 
@@ -279,9 +297,14 @@ process mutect {
     }else{
 	genot=" "
     }
+    if (params.PON) {
+        PON_option = "--panel-of-normals ${PON}"
+    } else {
+        PON_option = ""
+    }
     '''
     normal_name=`sambamba view -H !{bamN} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
-    gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{PON_option} !{params.PON} !{input_t} -I !{bamN} -normal $normal_name -O !{printed_tag}_calls.vcf -L !{bed} !{params.mutect_args}
+    gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{PON_option} !{input_t} -I !{bamN} -normal $normal_name -O !{printed_tag}_calls.vcf -L !{bed} !{params.mutect_args} --f1r2-tar-gz !{printed_tag}_f1r2.tar.gz
     '''
     }else{
     '''
@@ -347,54 +370,105 @@ process mergeMuTectOutputs {
 }
 
 if(mutect_version==2){
-	println("Filtering output")
+	/*println("Filtering output")
+	process ReadOrientationLearn {
+            tag { tumor_normal_tag }
+
+            publishDir params.output_folder, mode: 'copy'
+
+            input:
+            set val(tumor_normal_tag), file(f1r2) from ROfiles
+
+            output:
+            set val(tumor_normal_tag), file("*model.tar.gz") into ROmodel
+
+            shell:
+            '''
+            gatk LearnReadOrientationModel -I !{f1r2} -O !{tumor_normal_tag}_read-orientation-model.tar.gz
+            '''
+        }*/
+
 if(params.estimate_contamination){
 	//not working right now, the following is just a sketch based on gatk best practices
-	pairs4cont = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
-                       .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai') ] }
+	pairsT4cont = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
+                       .map{ row -> [ row.sample , 'T' , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai') ] }
+	pairsN4cont = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
+                       .map{ row -> [ row.sample , 'N', file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ] }
+		       .unique()
+	pairs4cont  = pairsT4cont.concat( pairsN4cont )
 
 	process ContaminationEstimationPileup {
+	    memory params.mem+'GB'
+            cpus '2'
 	    tag { tumor_normal_tag }
 
-	    publishDir params.output_folder, mode: 'move'
-
 	    input:
-	    set val(tumor_normal_tag), file(bam), file(bai) from pairs4cont
+	    set val(tumor_normal_tag), val(TN), file(bam), file(bai) from pairs4cont
+	    file fasta_ref
+	    file fasta_ref_fai
+	    file fasta_ref_gzi
+	    file fasta_ref_dict
+	    file snp_contam
+	    file snp_contam_tbi
 
 	    output:
-	    set val(tumor_normal_tag), file("*.table") into pileups
+	    set val(tumor_normal_tag), val(TN) , file("*.table") into pileups
 
 	    shell:
+	    basename=bam.baseName
 	    '''
-	    gatk GetPileupSummaries -I !{bam} -V chr17_small_exac_common_3_grch38.vcf.gz -L chr17_small_exac_common_3_grch38.vcf.gz -O !{tumor_normal_tag}_getpileupsummaries.table
+	    gatk --java-options "-Xmx!{params.mem}G" GetPileupSummaries -R !{fasta_ref} -I !{bam} -V !{snp_contam} -L !{snp_contam} -O !{basename}_pileups.table
 	    '''
 	}
+	pileupsN0   = Channel.create()
+	pileupsT0   = Channel.create()
+	pileups.choice( pileupsN0,pileupsT0 ) { a -> a[1] == "N" ? 0 : 1 }
+
+	pileupsN   = Channel.create()
+	pileupsT   = Channel.create()
+	pileupsN4pr   = Channel.create()
+        pileupsT4pr   = Channel.create()
+	pileupsN0.into(pileupsN,pileupsN4pr)
+	pileupsT0.into(pileupsT,pileupsT4pr)
+	pileups4cont = pileupsN.cross(pileupsT)
+			       .map { row -> tuple(row[0][0] , row[0][2] , row[1][2]  ) }
+				//pileups.groupTuple(by: 0)
+			     // .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0]  ) }
+
+
+	
+	pileups4contpr = pileupsN4pr.cross(pileupsT4pr)
+				    .map { row -> tuple(row[0][0] , row[0][2] , row[1][2]  ) }
+				    .subscribe{ row -> println "${row}" }
 
 	process ContaminationEstimation {
+   	    memory params.mem+'GB'
+	    cpus '2'
 	    tag { tumor_normal_tag }
-
-	    publishDir params.output_folder, mode: 'move'
+	    publishDir params.output_folder, mode: 'copy'
 
 	    input:
-	    set val(tumor_normal_tag), file(pileup) from pileups
+	    set val(tumor_normal_tag), file(pileupN) , file(pileupT) from pileups4cont
 
 	    output:
-	    file("*contamination.table") into contam
+	    set val(tumor_normal_tag), file("*contamination.table") into contam
 
 	    shell:
+	    basename=pileupT.baseName
 	    '''
-	    gatk CalculateContamination -I !{pileup} -tumor-segmentation segments.table -O !{tumor_normal_tag}_calculatecontamination.table
+	    gatk --java-options "-Xmx!{params.mem}G" CalculateContamination -I !{pileupT} -matched !{pileupN} -O !{basename}_calculatecontamination.table
 	    '''
 	}
+   res_merged_contam = res_merged.join(contam)
 }else{
-    pileups = [null,null,null]
+   res_merged_contam = res_merged.map{row -> [row[0], row[1], row[2] , null]}
 }
 
 process FilterMuTectOutputs {
     tag { tumor_normal_tag }
 
     input:
-    set val(tumor_normal_tag), file(vcf), file(stats) from res_merged
+    set val(tumor_normal_tag), file(vcf), file(stats), file(contam_tables) from res_merged_contam
     file fasta_ref
     file fasta_ref_fai
     file fasta_ref_gzi
@@ -406,10 +480,11 @@ process FilterMuTectOutputs {
     publishDir params.output_folder, mode: 'copy'
 
     shell:
+    contam=""
     if(params.estimate_contamination){
-	contam="--contamination-table contamination.table"
-    }else{
-	contam=" "	
+	for(contmp in contam_tables){
+		contam="--contamination-table ${contmp} "
+	}
     }
     '''
     gatk FilterMutectCalls -R !{fasta_ref} -V !{vcf} !{contam} -O !{tumor_normal_tag}_filtered.vcf
