@@ -18,7 +18,7 @@ if (params.help) {
     log.info '    --bam_folder         FILE                    Folder containing all bam files.'
     log.info '    --tn_file            FILE                    Tab delimited text file with two columns called tumor and normal'
     log.info '                                                 where each line contains the path of two matched BAM files.'    
-    log.info '    --ref                FILE (with index)       Reference fasta file.'
+    log.info '    --ref                FILE (with indexes)     Reference fasta file.'
     log.info '    --mutect_jar         FILE                    mutect*.jar explicit path.'
     log.info '    OR'
     log.info '    --mutect2_jar        FILE                    gatk*.jar explicit path to run mutect2 (integrated to GATK).'
@@ -41,10 +41,14 @@ if (params.help) {
     exit 0
 }
 
-fasta_ref = file(params.ref)
-fasta_ref_fai = file( params.ref+'.fai' )
-fasta_ref_gzi = file( params.ref+'.gzi' )
+fasta_ref      = file(params.ref)
+fasta_ref_fai  = file( params.ref+'.fai' )
+fasta_ref_gzi  = file( params.ref+'.gzi' )
 fasta_ref_dict = file( params.ref.replace(".fasta",".dict").replace(".fa",".dict") )
+
+fasta_ref_RNA      = file(params.ref_RNA)
+fasta_ref_RNA_fai  = file( params.ref_RNA+'.fai' )
+fasta_ref_RNA_dict = file( params.ref_RNA.replace(".fasta",".dict").replace(".fa",".dict") )
 
 params.suffix_tumor = "_T"
 params.suffix_normal = "_N"
@@ -102,9 +106,7 @@ if (params.tn_file) {
                               .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0]  ) }
                               //.subscribe { row -> println "${row}" }
 
-	
-
-     tn_bambai = pairs.groupTuple(by: 0)
+    tn_bambai = pairs.groupTuple(by: 0)
                               .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0]  ) }
                               //.subscribe { row -> println "${row}" }
 } else {
@@ -159,47 +161,58 @@ if (params.tn_file) {
       input_region = 'whole_genome'
 }
 
+//genotyping mode
+if(params.genotype){
+    pairs2 = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
+                       .map{ row -> [ row.sample , row.preproc, file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf) ] }
+
+    pairs2.branch{
+                    bam2preproc: it[1]=="yes"
+                    bam2nopreproc: it[1]!="yes"
+                 }
+        .set{ bams }
+    //                    .subscribe { println it }
+
+    //tn_bambaivcf2 = pairs2.groupTuple(by: 0)
+    //                          .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0] , row[5][0]  ) }
+    //                          .subscribe { row -> println "${row}" }
+
+
+    //pairs = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
+    //                   .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf) ] }
+
 //pre-processing of RNAseq data
-if(params.RNAseq_preproc){
-    process genotype{
+//if(params.RNAseq_preproc){
+process RNAseq_preproc{
     memory params.mem+'GB'
-    cpus params.cpus
+    cpus '2'
     tag { sample }
 
     input:
-    set val(sample), file(bam), file(bai) from bam2preproc
-    file fasta_ref
-    file fasta_ref_fai
-    file fasta_ref_dict
+    set val(sample), val(preproc), file(bam), file(bai), file(bamN), file(baiN), file(vcf) from bams.bam2preproc
+    file fasta_ref_RNA
+    file fasta_ref_RNA_fai
+    file fasta_ref_RNA_dict
 
     output:
-    set val(sample), file("${printed_tag}*.bam") into bam
+    set val(new_tag2), file("*_split.bam"), file("*_split.bai"), file(bamN), file(baiN), file(vcf) into bampreproc
 
     publishDir params.output_folder, mode: 'move'
 
     shell:
+    new_tag  = sample+"_MCNDNfixed"
+    new_tag2 = new_tag+"_split"
     '''
-    gatk SplitNCigarReads --java-options "-Xmx!{params.mem}G" --add-output-sam-program-record -R !{fasta_ref} -I !{bam} -O !{bam}_split.bam
+    python !{baseDir}/bin/correctNDN.py !{bam} !{new_tag}.bam
+    gatk SplitNCigarReads --java-options "-Xmx!{params.mem}G" --add-output-sam-program-record  -fixNDN true -R !{fasta_ref_RNA} -I !{new_tag}.bam -O !{new_tag2}.bam
     '''
-    }
 }
+//}
 
-//genotyping mode
-if(params.genotype){
-    pairs2 = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
-                       .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf) ] }
+bams2 = bams.bam2nopreproc.concat(bampreproc)
 
-    tn_bambaivcf2 = pairs2.groupTuple(by: 0)
-                              .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0] , row[5][0]  ) }
-                              .subscribe { row -> println "${row}" }
-
-
-pairs = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
-                       .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf) ] }
-
-    tn_bambaivcf = pairs.groupTuple(by: 0)
-                              .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0] , row[5][0]  ) }
-
+tn_bambaivcf = bams2.groupTuple(by: 0)
+                            .map { row -> tuple(row[0] , row[2], row[3] , row[4][0] , row[5][0] , row[6][0]  ) }
 
 process genotype{
     memory params.mem+'GB'
