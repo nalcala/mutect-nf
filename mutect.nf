@@ -183,28 +183,45 @@ if(params.genotype){
 
 //pre-processing of RNAseq data
 //if(params.RNAseq_preproc){
-process RNAseq_preproc{
+process RNAseq_preproc_fixMCNDN{
     memory params.mem+'GB'
     cpus '2'
     tag { sample }
 
     input:
     set val(sample), val(preproc), file(bam), file(bai), file(bamN), file(baiN), file(vcf) from bams.bam2preproc
+
+    output:
+    set val(new_tag), file("*_MCNDNfixed.bam"), file("*_MCNDNfixed.bai"), file(bamN), file(baiN), file(vcf) into bampreproc_mcndn
+
+    shell:
+    new_tag  = sample+"_MCNDNfixed"
+    '''
+    python !{baseDir}/bin/correctNDN.py !{bam} !{new_tag}.bam
+    samtools index !{new_tag}.bam !{new_tag}.bai
+    '''
+}
+
+process RNAseq_preproc_split{
+    memory params.mem+'GB'
+    cpus '2'
+    tag { sample }
+
+    input:
+    set val(sample), file(bam), file(bai), file(bamN), file(baiN), file(vcf) from bampreproc_mcndn
     file fasta_ref_RNA
     file fasta_ref_RNA_fai
     file fasta_ref_RNA_dict
 
     output:
-    set val(new_tag2), file("*_split.bam"), file("*_split.bai"), file(bamN), file(baiN), file(vcf) into bampreproc
+    set val(new_tag), file("*_split.bam"), file("*_split.bai"), file(bamN), file(baiN), file(vcf) into bampreproc
 
-    publishDir params.output_folder, mode: 'move'
+    publishDir params.output_folder, mode: 'copy'
 
     shell:
-    new_tag  = sample+"_MCNDNfixed"
-    new_tag2 = new_tag+"_split"
+    new_tag = sample+"_split"
     '''
-    python !{baseDir}/bin/correctNDN.py !{bam} !{new_tag}.bam
-    gatk SplitNCigarReads --java-options "-Xmx!{params.mem}G" --add-output-sam-program-record  -fixNDN true -R !{fasta_ref_RNA} -I !{new_tag}.bam -O !{new_tag2}.bam
+    gatk SplitNCigarReads --java-options "-Xmx!{params.mem}G" --add-output-sam-program-record  -fixNDN true -R !{fasta_ref_RNA} -I !{bam} -O !{new_tag}.bam
     '''
 }
 //}
