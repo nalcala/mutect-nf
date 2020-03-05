@@ -46,10 +46,6 @@ fasta_ref_fai  = file( params.ref+'.fai' )
 fasta_ref_gzi  = file( params.ref+'.gzi' )
 fasta_ref_dict = file( params.ref.replace(".fasta",".dict").replace(".fa",".dict") )
 
-fasta_ref_RNA      = file(params.ref_RNA)
-fasta_ref_RNA_fai  = file( params.ref_RNA+'.fai' )
-fasta_ref_RNA_dict = file( params.ref_RNA.replace(".fasta",".dict").replace(".fa",".dict") )
-
 params.suffix_tumor = "_T"
 params.suffix_normal = "_N"
 params.mem = 8
@@ -80,6 +76,7 @@ if (params.known_snp == "") { known_snp_option = "" } else {
                 known_snp_option = "--dbsnp"
         }
 }
+params.mutect_options = "" //for example: --independent-mates 
 params.PON = null
 if (params.PON) { 
 	PON = file(params.PON)
@@ -91,6 +88,12 @@ if (params.PON) {
 params.estimate_contamination = null
 params.genotype = null
 params.RNAseq_preproc = null
+
+if(params.genotype){
+fasta_ref_RNA      = file(params.ref_RNA)
+fasta_ref_RNA_fai  = file( params.ref_RNA+'.fai' )
+fasta_ref_RNA_dict = file( params.ref_RNA.replace(".fasta",".dict").replace(".fa",".dict") )
+}
 
 if (params.tn_file) {
     // FOR INPUT AS A TAB DELIMITED FILE
@@ -164,45 +167,38 @@ if (params.tn_file) {
 //genotyping mode
 if(params.genotype){
     pairs2 = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
-                       .map{ row -> [ row.sample , row.preproc, file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf) ] }
+                       .map{ row -> [ row.sample , row.preproc, file(params.bam_folder + "/" + row.tumor), 
+                       file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), 
+                       file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf), 
+                       file(params.bam_folder + "/" + row.vcf + '.tbi') ] }
 
     pairs2.branch{
                     bam2preproc: it[1]=="yes"
                     bam2nopreproc: it[1]!="yes"
                  }
         .set{ bams }
-    //                    .subscribe { println it }
-
-    //tn_bambaivcf2 = pairs2.groupTuple(by: 0)
-    //                          .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0] , row[5][0]  ) }
-    //                          .subscribe { row -> println "${row}" }
-
-
-    //pairs = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
-    //                   .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf) ] }
 
 //pre-processing of RNAseq data
-//if(params.RNAseq_preproc){
-process RNAseq_preproc_fixMCNDN{
+process RNAseq_preproc_fixMCNDN_fixMQ{
     memory params.mem+'GB'
-    cpus '2'
+    cpus '4'
     tag { sample }
 
     input:
-    set val(sample), val(preproc), file(bam), file(bai), file(bamN), file(baiN), file(vcf) from bams.bam2preproc
+    set val(sample), val(preproc), file(bam), file(bai), file(bamN), file(baiN), file(vcf), file(vcftbi) from bams.bam2preproc
 
     output:
-    set val(new_tag), file("*_MCNDNfixed.bam"), file("*_MCNDNfixed.bai"), file(bamN), file(baiN), file(vcf) into bampreproc_mcndn
+    set val(sample), file("*_MCNDNfixed.bam"), file("*_MCNDNfixed.bai"), file(bamN), file(baiN), file(vcf), file(vcftbi) into bampreproc
 
     shell:
-    new_tag  = sample+"_MCNDNfixed"
     '''
-    python !{baseDir}/bin/correctNDN.py !{bam} !{new_tag}.bam
-    samtools index !{new_tag}.bam !{new_tag}.bai
+    SM=`samtools view -H !{bam} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
+    python !{baseDir}/bin/correctNDN.py !{bam} !{sample}_$SM"_MCNDNfixed.bam"
+    samtools index !{sample}_$SM"_MCNDNfixed.bam" !{sample}_$SM"_MCNDNfixed.bai"
     '''
 }
 
-process RNAseq_preproc_split{
+/*process RNAseq_preproc_split{
     memory params.mem+'GB'
     cpus '2'
     tag { sample }
@@ -214,30 +210,37 @@ process RNAseq_preproc_split{
     file fasta_ref_RNA_dict
 
     output:
-    set val(new_tag), file("*_split.bam"), file("*_split.bai"), file(bamN), file(baiN), file(vcf) into bampreproc
+    set val(sample), file("*_split.bam"), file("*_split.bai"), file(bamN), file(baiN), file(vcf) into bampreproc
 
-    publishDir params.output_folder, mode: 'copy'
+    publishDir params.output_folder, mode: 'copy', saveAs: {filename ->
+        if (filename.indexOf("_split") > 0) "$filename"
+	}
 
     shell:
-    new_tag = sample+"_split"
+    new_tag = sample+"_MCNDNfixed_split"
     '''
     gatk SplitNCigarReads --java-options "-Xmx!{params.mem}G" --add-output-sam-program-record  -fixNDN true -R !{fasta_ref_RNA} -I !{bam} -O !{new_tag}.bam
     '''
-}
+}*/
 //}
 
-bams2 = bams.bam2nopreproc.concat(bampreproc)
+bam2nopreproc2 = bams.bam2nopreproc.map{ row -> tuple(row[0], row[2], row[3], row[4], row[5], row[6], row[7]) }
 
-tn_bambaivcf = bams2.groupTuple(by: 0)
-                            .map { row -> tuple(row[0] , row[2], row[3] , row[4][0] , row[5][0] , row[6][0]  ) }
+bams2 = bam2nopreproc2.concat(bampreproc)
+
+tn_bambaivcf0 = bams2.groupTuple(by: 0)
+                            .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0] , row[5][0] , row[6][0] ) }
+
+tn_bambaivcf0.into{tn_bambaivcf; tn_bambaivcf4print}
+//tn_bambaivcf4print.subscribe{println "$it"}
 
 process genotype{
     memory params.mem+'GB'
-    cpus '2'
+    cpus '4'
     tag { sample }
 
     input:
-    set val(sample), file(bamT), file(baiT), file(bamN), file(baiN), file(vcf)  from tn_bambaivcf
+    set val(sample), file(bamT), file(baiT), file(bamN), file(baiN), file(vcf), file(vcftbi)  from tn_bambaivcf
     file fasta_ref
     file fasta_ref_fai
     file fasta_ref_dict
@@ -245,11 +248,11 @@ process genotype{
     file PON_tbi
 
     output:
-    set val(sample), file("${printed_tag}*.vcf") into mutect_output1
+    set val(sample), file(vcf) , file(vcftbi) , file("${printed_tag}*.vcf") into mutect_geno
     set val(sample), file("${printed_tag}*stats*") into mutect_output2
 
-    publishDir params.output_folder, mode: 'move'
-
+    publishDir "${params.output_folder}/stats", mode: 'move', pattern: '{*stats*}' 
+  
     shell:
     printed_tag = "${sample}"// + bed_tag
     if("${params.gatk_version}" == "4"){
@@ -264,11 +267,34 @@ process genotype{
     }
     '''
     !{baseDir}/bin/prep_vcf_bed.sh
-    normal_name=`sambamba view -H !{bamN} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
+    normal_name=`samtools view -H !{bamN} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
     gatk IndexFeatureFile -F !{vcf}
-    gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{PON_option} !{input_t} -I !{bamN} -normal $normal_name -O !{printed_tag}_genotyped.vcf -L regions.bed !{params.mutect_args} --alleles !{vcf} --disable-read-filter NonChimericOriginalAlignmentReadFilter --disable-read-filter NotDuplicateReadFilter --disable-read-filter ReadLengthReadFilter --disable-read-filter GoodCigarReadFilter --disable-read-filter NonZeroReferenceLengthAlignmentReadFilter --dont-use-soft-clipped-bases --genotype-filtered-alleles --genotype-germline-sites --genotype-pon-sites --active-probability-threshold 0.000 --min-base-quality-score 0 --initial-tumor-lod -100000000000  --tumor-lod-to-emit -100000000000 --force-active --dont-trim-active-regions
+    gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{params.mutect_options} !{known_snp_option} !{params.known_snp} !{PON_option} !{input_t} -I !{bamN} -normal $normal_name \
+    -O !{printed_tag}_genotyped.vcf -L regions.bed !{params.mutect_args} --alleles !{vcf} --disable-read-filter NonChimericOriginalAlignmentReadFilter --disable-read-filter NotDuplicateReadFilter \
+    --disable-read-filter ReadLengthReadFilter --disable-read-filter GoodCigarReadFilter --disable-read-filter NonZeroReferenceLengthAlignmentReadFilter --disable-read-filter WellformedReadFilter \
+    --genotype-filtered-alleles --genotype-germline-sites --genotype-pon-sites --active-probability-threshold 0.000 --min-base-quality-score 0 --initial-tumor-lod -100000000000  --tumor-lod-to-emit \
+    -100000000000 --force-active --dont-trim-active-regions --max-reads-per-alignment-start 0
     '''
     }
+}
+
+process CompressAndIndex {
+    tag { tumor_normal_tag }
+
+    input:
+    set val(tumor_normal_tag), file(vcf) , file(vcftbi) , file(vcf_geno) from mutect_geno
+
+    output:
+    set val(tumor_normal_tag), file("*.vcf.gz"), file("*.vcf.gz.tbi") into res_filtered_PASS
+
+    publishDir params.output_folder, mode: 'move'
+
+    shell:
+    vcf_name = vcf_geno[0].baseName
+    '''
+    bcftools view -O z !{vcf_geno[0]} > !{vcf_name}.vcf.gz
+    bcftools index -t !{vcf_name}.vcf.gz
+    '''
 }
 
 }else{
@@ -320,7 +346,7 @@ tn_bambai2.spread(split_bed2)
 
 process mutect {
     memory params.mem+'GB' 
-    cpus '2'
+    cpus '4'
 
     tag { printed_tag }
 
@@ -347,28 +373,31 @@ process mutect {
     for( bamTi in bamT ){
 	input_t=input_t+" -I ${bamTi}"
     }
-    if(params.genotype){
-	genot=""
-    }else{
-	genot=" "
-    }
+    if(bamN.baseName == 'None' )  input_n=" "
+    else input_n="-I !{bamN} -normal $normal_name"
     if (params.PON) {
         PON_option = "--panel-of-normals ${PON}"
     } else {
         PON_option = ""
     }
     '''
-    normal_name=`sambamba view -H !{bamN} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
-    gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{PON_option} !{input_t} -I !{bamN} -normal $normal_name -O !{printed_tag}_calls.vcf -L !{bed} !{params.mutect_args} --f1r2-tar-gz !{printed_tag}_f1r2.tar.gz
+    normal_name=`samtools view -H !{bamN} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
+    gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{PON_option} \
+    !{input_t} !{input_n} -O !{printed_tag}_calls.vcf -L !{bed} !{params.mutect_args} --f1r2-tar-gz !{printed_tag}_f1r2.tar.gz
     '''
     }else{
     '''
     if [ "!{mutect_version}" == "2" ]
 		        then
-		            !{params.java} -Xmx!{params.mem}g -jar !{params.mutect2_jar} -T MuTect2  -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{cosmic_option} !{params.cosmic} -I:normal !{bamN} -I:tumor !{bamT} -o "!{sample}_!{bed_tag}_calls.vcf" -L !{bed} !{params.mutect_args}
+		            !{params.java} -Xmx!{params.mem}g -jar !{params.mutect2_jar} -T MuTect2  -R !{fasta_ref} !{known_snp_option} \
+                    !{params.known_snp} !{cosmic_option} !{params.cosmic} -I:normal !{bamN} -I:tumor !{bamT} \
+                    -o "!{sample}_!{bed_tag}_calls.vcf" -L !{bed} !{params.mutect_args}
 			    touch !{sample}_!{bed_tag}_calls_stats.txt 
 	        	else
-	        	    !{params.java} -Xmx!{params.mem}g --analysis_type MuTect --reference_sequence !{fasta_ref} !{known_snp_option} !{params.known_snp} !{cosmic_option} !{params.cosmic} --intervals !{bed} --input_file:tumor !{bamT} --input_file:normal !{bamN} --out "!{sample}_!{bed_tag}_calls_stats.txt" --vcf "!{sample}_!{bed_tag}_calls.vcf" !{params.mutect_args}
+	        	    !{params.java} -Xmx!{params.mem}g --analysis_type MuTect --reference_sequence !{fasta_ref} \
+                    !{known_snp_option} !{params.known_snp} !{cosmic_option} !{params.cosmic} --intervals !{bed} \
+                    --input_file:tumor !{bamT} --input_file:normal !{bamN} --out "!{sample}_!{bed_tag}_calls_stats.txt" \
+                    --vcf "!{sample}_!{bed_tag}_calls.vcf" !{params.mutect_args}
     fi
     '''
     }
@@ -448,7 +477,9 @@ if(params.estimate_contamination){
 	pairsT4cont = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
                        .map{ row -> [ row.sample , 'T' , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai') ] }
 	pairsN4cont = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
-                       .map{ row -> [ row.sample , 'N', file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ] }
+                         .filter { it.normal != 'None' }
+                         .map{ row -> [ row.sample , 'N', file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ] }
+                       
 		       .unique()
 	pairs4cont  = pairsT4cont.concat( pairsN4cont )
 
@@ -510,8 +541,10 @@ if(params.estimate_contamination){
 
 	    shell:
 	    basename=pileupT.baseName
+        if(pileupN.baseName == 'None' )  input_n=" "
+        else input_n="-matched $pileupN"
 	    '''
-	    gatk --java-options "-Xmx!{params.mem}G" CalculateContamination -I !{pileupT} -matched !{pileupN} -O !{basename}_calculatecontamination.table
+	    gatk --java-options "-Xmx!{params.mem}G" CalculateContamination -I !{pileupT} !{input_n} -O !{basename}_calculatecontamination.table
 	    '''
 	}
    res_merged_contam = res_merged.join(contam)
