@@ -76,7 +76,6 @@ if (params.known_snp == "") { known_snp_option = "" } else {
                 known_snp_option = "--dbsnp"
         }
 }
-params.mutect_options = "" //for example: --independent-mates 
 params.PON = null
 if (params.PON) { 
 	PON = file(params.PON)
@@ -232,7 +231,6 @@ tn_bambaivcf0 = bams2.groupTuple(by: 0)
                             .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0] , row[5][0] , row[6][0] ) }
 
 tn_bambaivcf0.into{tn_bambaivcf; tn_bambaivcf4print}
-//tn_bambaivcf4print.subscribe{println "$it"}
 
 process genotype{
     memory params.mem+'GB'
@@ -251,25 +249,29 @@ process genotype{
     set val(sample), file(vcf) , file(vcftbi) , file("${printed_tag}*.vcf") into mutect_geno
     set val(sample), file("${printed_tag}*stats*") into mutect_output2
 
-    publishDir "${params.output_folder}/stats", mode: 'move', pattern: '{*stats*}' 
+    publishDir "${params.output_folder}/stats", mode: 'copy', pattern: '{*stats*}' 
   
     shell:
-    printed_tag = "${sample}"// + bed_tag
+    printed_tag = "${sample}"
     if("${params.gatk_version}" == "4"){
     input_t=""
     for( bamTi in bamT ){
-        input_t=input_t+" -I ${bamTi}"
+	input_t=input_t+" -I ${bamTi}"
     }
-    if (params.PON) { 
-        PON_option = "--panel-of-normals ${PON[0]}" 
-    } else { 
-        PON_option = "" 
+    if(bamN.baseName == 'None' )  input_n=" "
+    else{
+        input_n="-I ${bamN} -normal \$normal_name"
+    }
+    if (params.PON) {
+        PON_option = "--panel-of-normals ${PON}"
+    } else {
+        PON_option = ""
     }
     '''
     !{baseDir}/bin/prep_vcf_bed.sh
     normal_name=`samtools view -H !{bamN} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
     gatk IndexFeatureFile -F !{vcf}
-    gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{params.mutect_options} !{known_snp_option} !{params.known_snp} !{PON_option} !{input_t} -I !{bamN} -normal $normal_name \
+    gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{PON_option} !{input_t} !{input_n} \
     -O !{printed_tag}_genotyped.vcf -L regions.bed !{params.mutect_args} --alleles !{vcf} --disable-read-filter NonChimericOriginalAlignmentReadFilter --disable-read-filter NotDuplicateReadFilter \
     --disable-read-filter ReadLengthReadFilter --disable-read-filter GoodCigarReadFilter --disable-read-filter NonZeroReferenceLengthAlignmentReadFilter --disable-read-filter WellformedReadFilter \
     --genotype-filtered-alleles --genotype-germline-sites --genotype-pon-sites --active-probability-threshold 0.000 --min-base-quality-score 0 --initial-tumor-lod -100000000000  --tumor-lod-to-emit \
@@ -287,7 +289,7 @@ process CompressAndIndex {
     output:
     set val(tumor_normal_tag), file("*.vcf.gz"), file("*.vcf.gz.tbi") into res_filtered_PASS
 
-    publishDir params.output_folder, mode: 'move'
+    publishDir params.output_folder, mode: 'copy'
 
     shell:
     vcf_name = vcf_geno[0].baseName
@@ -341,8 +343,8 @@ process split_bed {
 ( split_bed1 , split_bed2) = split_bed.into(2)
 
 
-tn_bambai2.spread(split_bed2)
-	  .subscribe{ row -> println "${row}"}
+//tn_bambai2.spread(split_bed2)
+//	  .subscribe{ row -> println "${row}"}
 
 process mutect {
     memory params.mem+'GB' 
@@ -374,7 +376,7 @@ process mutect {
 	input_t=input_t+" -I ${bamTi}"
     }
     if(bamN.baseName == 'None' )  input_n=" "
-    else input_n="-I !{bamN} -normal $normal_name"
+    else input_n="-I ${bamN} -normal \$normal_name"
     if (params.PON) {
         PON_option = "--panel-of-normals ${PON}"
     } else {
