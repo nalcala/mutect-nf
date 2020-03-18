@@ -411,7 +411,7 @@ process mergeMuTectOutputs {
 
     tag { tumor_normal_tag }
 
-    publishDir params.output_folder, mode: 'copy'
+    publishDir params.output_folder+'/intermediate_calls/raw_calls/', mode: 'copy'
 
     input:
     set val(tumor_normal_tag), file(vcf_files) from mutect_output1.groupTuple(size: beds_length)
@@ -460,7 +460,7 @@ if(mutect_version==2){
 	process ReadOrientationLearn {
             tag { tumor_normal_tag }
 
-            publishDir params.output_folder, mode: 'copy'
+            publishDir params.output_folder+'/stats', mode: 'copy'
 
             input:
             set val(tumor_normal_tag), file(f1r2) from ROfiles
@@ -479,7 +479,7 @@ if(params.estimate_contamination){
 	pairsT4cont = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
                        .map{ row -> [ row.sample , 'T' , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai') ] }
 	pairsN4cont = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
-                         .filter { it.normal != 'None' }
+         //                .filter { it.normal != 'None' }
                          .map{ row -> [ row.sample , 'N', file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ] }
                        
 		       .unique()
@@ -494,19 +494,26 @@ if(params.estimate_contamination){
 	    set val(tumor_normal_tag), val(TN), file(bam), file(bai) from pairs4cont
 	    file fasta_ref
 	    file fasta_ref_fai
-	    file fasta_ref_gzi
 	    file fasta_ref_dict
 	    file snp_contam
 	    file snp_contam_tbi
 
 	    output:
 	    set val(tumor_normal_tag), val(TN) , file("*.table") into pileups
+	    
 
 	    shell:
 	    basename=bam.baseName
+	
+	    if(basename != 'None'){
 	    '''
 	    gatk --java-options "-Xmx!{params.mem}G" GetPileupSummaries -R !{fasta_ref} -I !{bam} -V !{snp_contam} -L !{snp_contam} -O !{basename}_pileups.table
 	    '''
+	    }else{
+	    '''
+	    touch empty.table
+	    '''
+	}
 	}
 	pileupsN0   = Channel.create()
 	pileupsT0   = Channel.create()
@@ -533,7 +540,7 @@ if(params.estimate_contamination){
    	    memory params.mem+'GB'
 	    cpus '2'
 	    tag { tumor_normal_tag }
-	    publishDir params.output_folder, mode: 'copy'
+	    publishDir params.output_folder+'/stats', mode: 'copy'
 
 	    input:
 	    set val(tumor_normal_tag), file(pileupN) , file(pileupT) from pileups4cont
@@ -543,7 +550,7 @@ if(params.estimate_contamination){
 
 	    shell:
 	    basename=pileupT.baseName
-        if(pileupN.baseName == 'None' )  input_n=" "
+        if(pileupN.baseName == 'empty' )  input_n=" "
         else input_n="-matched $pileupN"
 	    '''
 	    gatk --java-options "-Xmx!{params.mem}G" CalculateContamination -I !{pileupT} !{input_n} -O !{basename}_calculatecontamination.table
@@ -567,7 +574,7 @@ process FilterMuTectOutputs {
     output:
     set val(tumor_normal_tag), file("*filtered.vcf*") into res_filtered
 
-    publishDir params.output_folder, mode: 'copy'
+    publishDir params.output_folder+'/intermediate_calls/filtered', mode: 'copy'
 
     shell:
     contam=""
