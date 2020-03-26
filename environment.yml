@@ -4,7 +4,7 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - gatk4=4.1.2.0
+  - gatk4=4.1.5.0
   - bioconductor-variantannotation=1.32.0
   - pysam=0.15.2
   - bedops=2.4.37

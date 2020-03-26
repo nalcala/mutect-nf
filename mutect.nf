@@ -270,12 +270,12 @@ process genotype{
     '''
     !{baseDir}/bin/prep_vcf_bed.sh
     normal_name=`samtools view -H !{bamN} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
-    gatk IndexFeatureFile -F !{vcf}
+    gatk IndexFeatureFile -I !{vcf}
     gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{PON_option} !{input_t} !{input_n} \
     -O !{printed_tag}_genotyped.vcf -L regions.bed !{params.mutect_args} --alleles !{vcf} --disable-read-filter NonChimericOriginalAlignmentReadFilter --disable-read-filter NotDuplicateReadFilter \
     --disable-read-filter ReadLengthReadFilter --disable-read-filter GoodCigarReadFilter --disable-read-filter NonZeroReferenceLengthAlignmentReadFilter --disable-read-filter WellformedReadFilter \
     --genotype-filtered-alleles --genotype-germline-sites --genotype-pon-sites --active-probability-threshold 0.000 --min-base-quality-score 0 --initial-tumor-lod -100000000000  --tumor-lod-to-emit \
-    -100000000000 --force-active --dont-trim-active-regions --max-reads-per-alignment-start 0
+    -100000000000 --force-active --max-reads-per-alignment-start 0
     '''
     }
 }
@@ -318,7 +318,7 @@ process bed {
 
       else if (input_region == 'whole_genome')
       '''
-      cat !{fasta_ref_fai} | awk '{print $1"	"1"	"$2 }' > temp.bed
+      cat !{fasta_ref_fai} | awk '{print $1"	"0"	"$2 }' | grep -v -P "alt|random|Un|chrEBV|HLA" > temp.bed
       '''
   }
 
@@ -463,7 +463,7 @@ if(mutect_version==2){
             publishDir params.output_folder+'/stats', mode: 'copy'
 
             input:
-            set val(tumor_normal_tag), file(f1r2) from ROfiles
+            set val(tumor_normal_tag), file(f1r2) from f1r2.groupTuple(
 
             output:
             set val(tumor_normal_tag), file("*model.tar.gz") into ROmodel
