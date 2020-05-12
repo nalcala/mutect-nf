@@ -5,7 +5,7 @@ params.help = null
 if (params.help) {
     log.info ''
     log.info '--------------------------------------------------'
-    log.info '                 NEXTFLOW MUTECT                  '
+    log.info '               NEXTFLOW mutect-nf v2.0            '
     log.info '--------------------------------------------------'
     log.info ''
     log.info 'Usage: '
