@@ -168,8 +168,7 @@ if(params.genotype){
     pairs2 = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
                        .map{ row -> [ row.sample , row.preproc, file(params.bam_folder + "/" + row.tumor), 
                        file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), 
-                       file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf), 
-                       file(params.bam_folder + "/" + row.vcf + '.tbi') ] }
+                       file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf) ] }
 
     pairs2.branch{
                     bam2preproc: it[1]=="yes"
@@ -184,20 +183,24 @@ process RNAseq_preproc_fixMCNDN_fixMQ{
     tag { sample }
 
     input:
-    set val(sample), val(preproc), file(bam), file(bai), file(bamN), file(baiN), file(vcf), file(vcftbi) from bams.bam2preproc
+    set val(sample), val(preproc), file(bam), file(bai), file(bamN), file(baiN), file(vcf) from bams.bam2preproc
 
     output:
-    set val(sample), file("*_MCNDNfixed.bam"), file("*_MCNDNfixed.bai"), file(bamN), file(baiN), file(vcf), file(vcftbi) into bampreproc
+    set val(sample), file("*_MCNDNfixed.bam"), file("*_MCNDNfixed.bai"), file(bamN), file(baiN), file(vcf) into bampreproc_mcndn
 
     shell:
+    if(bamN.baseName == 'None' ) {
+        input_n=" "
+    }
     '''
+    if [ -L "None" ]; then unlink None; unlink None.bai; touch None;touch None.bai; fi
     SM=`samtools view -H !{bam} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
     python !{baseDir}/bin/correctNDN.py !{bam} !{sample}_$SM"_MCNDNfixed.bam"
     samtools index !{sample}_$SM"_MCNDNfixed.bam" !{sample}_$SM"_MCNDNfixed.bai"
     '''
 }
 
-/*process RNAseq_preproc_split{
+process RNAseq_preproc_split{
     memory params.mem+'GB'
     cpus '2'
     tag { sample }
@@ -209,26 +212,23 @@ process RNAseq_preproc_fixMCNDN_fixMQ{
     file fasta_ref_RNA_dict
 
     output:
-    set val(sample), file("*_split.bam"), file("*_split.bai"), file(bamN), file(baiN), file(vcf) into bampreproc
-
-    publishDir params.output_folder, mode: 'copy', saveAs: {filename ->
-        if (filename.indexOf("_split") > 0) "$filename"
-	}
+    set val(sample), file("*_split*.bam"), file("*_split*.bai"), file(bamN), file(baiN), file(vcf) into bampreproc
 
     shell:
     new_tag = sample+"_MCNDNfixed_split"
     '''
-    gatk SplitNCigarReads --java-options "-Xmx!{params.mem}G" --add-output-sam-program-record  -fixNDN true -R !{fasta_ref_RNA} -I !{bam} -O !{new_tag}.bam
+    SM=`samtools view -H !{bam} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
+    gatk SplitNCigarReads --java-options "-Xmx!{params.mem}G -Djava.io.tmpdir=$PWD" --add-output-sam-program-record  -fixNDN true -R !{fasta_ref_RNA} -I !{bam} -O !{new_tag}_$SM.bam
     '''
-}*/
+}
 //}
 
-bam2nopreproc2 = bams.bam2nopreproc.map{ row -> tuple(row[0], row[2], row[3], row[4], row[5], row[6], row[7]) }
+bam2nopreproc2 = bams.bam2nopreproc.map{ row -> tuple(row[0], row[2], row[3], row[4], row[5], row[6]) }
 
 bams2 = bam2nopreproc2.concat(bampreproc)
 
 tn_bambaivcf0 = bams2.groupTuple(by: 0)
-                            .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0] , row[5][0] , row[6][0] ) }
+                            .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0] , row[5][0] ) }
 
 tn_bambaivcf0.into{tn_bambaivcf; tn_bambaivcf4print}
 
@@ -238,7 +238,7 @@ process genotype{
     tag { sample }
 
     input:
-    set val(sample), file(bamT), file(baiT), file(bamN), file(baiN), file(vcf), file(vcftbi)  from tn_bambaivcf
+    set val(sample), file(bamT), file(baiT), file(bamN), file(baiN), file(vcf)  from tn_bambaivcf
     file fasta_ref
     file fasta_ref_fai
     file fasta_ref_dict
@@ -246,7 +246,7 @@ process genotype{
     file PON_tbi
 
     output:
-    set val(sample), file(vcf) , file(vcftbi) , file("${printed_tag}*.vcf") into mutect_geno
+    set val(sample), file(vcf) , file("${printed_tag}*.vcf") into mutect_geno
     set val(sample), file("${printed_tag}*stats*") into mutect_output2
 
     publishDir "${params.output_folder}/stats", mode: 'copy', pattern: '{*stats*}' 
@@ -258,8 +258,9 @@ process genotype{
     for( bamTi in bamT ){
 	input_t=input_t+" -I ${bamTi}"
     }
-    if(bamN.baseName == 'None' )  input_n=" "
-    else{
+    if(bamN.baseName == 'None' ) {
+	input_n=" "
+    }else{
         input_n="-I ${bamN} -normal \$normal_name"
     }
     if (params.PON) {
@@ -272,9 +273,9 @@ process genotype{
     normal_name=`samtools view -H !{bamN} | grep SM | head -1 | awk '{print $4}' | cut -c 4-`
     gatk IndexFeatureFile -I !{vcf}
     gatk Mutect2 --java-options "-Xmx!{params.mem}G" -R !{fasta_ref} !{known_snp_option} !{params.known_snp} !{PON_option} !{input_t} !{input_n} \
-    -O !{printed_tag}_genotyped.vcf -L regions.bed !{params.mutect_args} --alleles !{vcf} --disable-read-filter NonChimericOriginalAlignmentReadFilter --disable-read-filter NotDuplicateReadFilter \
-    --disable-read-filter ReadLengthReadFilter --disable-read-filter GoodCigarReadFilter --disable-read-filter NonZeroReferenceLengthAlignmentReadFilter --disable-read-filter WellformedReadFilter \
-    --genotype-filtered-alleles --genotype-germline-sites --genotype-pon-sites --active-probability-threshold 0.000 --min-base-quality-score 0 --initial-tumor-lod -100000000000  --tumor-lod-to-emit \
+    -O !{printed_tag}_genotyped.vcf !{params.mutect_args} --alleles !{vcf} -L regions.bed --disable-read-filter NonChimericOriginalAlignmentReadFilter --disable-read-filter NotDuplicateReadFilter \
+    --disable-read-filter ReadLengthReadFilter --disable-read-filter WellformedReadFilter \
+    --force-call-filtered-alleles --genotype-filtered-alleles --genotype-germline-sites --genotype-pon-sites --active-probability-threshold 0.000 --min-base-quality-score 0 --initial-tumor-lod -100000000000  --tumor-lod-to-emit \
     -100000000000 --force-active --max-reads-per-alignment-start 0
     '''
     }
@@ -284,7 +285,7 @@ process CompressAndIndex {
     tag { tumor_normal_tag }
 
     input:
-    set val(tumor_normal_tag), file(vcf) , file(vcftbi) , file(vcf_geno) from mutect_geno
+    set val(tumor_normal_tag), file(vcf) , file(vcf_geno) from mutect_geno
 
     output:
     set val(tumor_normal_tag), file("*.vcf.gz"), file("*.vcf.gz.tbi") into res_filtered_PASS
