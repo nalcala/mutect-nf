@@ -27,14 +27,24 @@ When the estimate contamination mode is chosen, one needs to provide a list of k
 ## Input 
  | Type      | Description     |
   |-----------|---------------|
-  |--bam_folder    | a folder with tumor and normal bam files |
   |--tumor_bam_folder | a folder with tumor bam files |
   |--normal_bam_folder | a folder with normal bam files |
-  |--tn_file |  input tabulation-separated values file with columns SM (sample name), RG (read group), pair1 (first fastq pair file), and pair2 (second fastq pair file) |
+  |--tn_file |  input tabulation-separated values file with columns sample (sample name), tumor (full path to tumor bam), normal (full path to matched normal bam); optionally (for --genotype mode), columns preproc (is the bam RNAseq needing preprocessing: yes or no) and vcf (full path to vcf file containing alleles to genotype) |
   
-  Note that there are three input methods: single bam_folder, separated tumor_bam_folder and normal_bam_folder, and tn_file. The bam_folder method is the easiest and assumes that both normal and tumor bam files are in this folder, and it uses parameters suffix_tumor and suffix_normal to detect them (the rest of the file name needs to be identical); the separated tumor_bam_folder and normal_bam_folder method also uses the suffix_tumor and suffix_normal to match the samples. 
+ ### Input methods
+ Note that there are two input methods: separate tumor_bam_folder and normal_bam_folder, and tn_file. 
+ 
+#### Separated tumor_bam_folder and normal_bam_folder method 
+The method assumes that normal and tumor bam files are in these respective folder, and uses parameters suffix_tumor and suffix_normal to detect them (the rest of the file name needs to be identical. 
   
-  The tn_file method uses a tabulation-separated values format file with columns sample, tumor, and normal (in any order); it does not use parameters suffix_tumor and suffix_normal and does not require file names to match. When the genotype mode is active, additional columns are expected: preproc, specifying if preprocessing of RNA-seq bam file is required (yes or no) and vcf, indicating the location of the vcf file containing the alleles to genotype. The tn_file method is necessary for joint multi-sample calling, in which case the sample name is used to group files.
+The tumor bam file format must be (`sample` `suffix_tumor` `.bam`) with `suffix_tumor` as `_T` by default and customizable in input (`--suffix_tumor`). (e.g. `sample1_T.bam`)
+The normal bam file format must be (`sample` `suffix_normal` `.bam`) with `suffix_normal` as `_N` by default and customizable in input (`--suffix_normal`). (e.g. `sample1_N.bam`).
+BAI indexes have to be present in the same location than their BAM mates, with the extension `bam.bai`.
+
+#### The tn_file method 
+The method uses a tabulation-separated values format file with columns sample, tumor, and normal (in any order); it does not use parameters suffix_tumor and suffix_normal and does not require file names to match. When the genotype mode is active, additional columns are expected: preproc, specifying if preprocessing of RNA-seq bam file is required (yes or no) and vcf, indicating the location of the vcf file containing the alleles to genotype. The tn_file method is necessary for joint multi-sample calling, in which case the sample name is used to group files.
+
+BAI indexes have to be present in the same location than their BAM mates, with the extension `bam.bai`.
 
 ## Parameters
 
@@ -42,12 +52,8 @@ When the estimate contamination mode is chosen, one needs to provide a list of k
 | Name | Example value | Description |
 |-----------|--------------:|-------------| 
 |--ref | ref.fa | reference genome fasta file |
-|--bed   |  gene.bed | bed file with genes for RESeQC | 
-
 
 * #### Optional
-
-```mutect_path```, ```--dbsnp```, ```--cosmic```
 
 | Name | Default value | Description |
 |-----------|--------------|-------------| 
@@ -56,40 +62,45 @@ When the estimate contamination mode is chosen, one needs to provide a list of k
 |--suffix_tumor      | \_T | suffix for tumor file|
 |--suffix_normal      | \_N | suffix for matched normal file|
 |--output_folder   | mutect_results | output folder for aligned BAMs|
-|--known_snp |  "" | VCF file with known variants and frequency (e.g., from gnomad) |
-|--mutect_args = ""
-|--nsplit = 1
-|--region = null
-|--bed = null
-|--java = "java"
-|--snp_contam = "NO_FILE"
-|--cosmic = ""
-|--mutect_jar = null
-|--mutect2_jar = null
-|--gatk_version= "4"
-|--PON = null
+|--bed   |   | Bed file containing intervals | 
+|--region | |  A region defining the calling, in the format CHR:START-END |
+|--known_snp |  | VCF file with known variants and frequency (e.g., from gnomad) |
+|--mutect_args | | Arguments you want to pass to mutect. WARNING: form is " --force_alleles " with spaces between quotes |
+|--nsplit | 1 | Split the region for calling in nsplit pieces and run in parallel |
+|--java | java | Name of the JAVA command | 
+|--snp_contam  | | VCF file with known germline variants to genotype for contamination estimation (requires --estimate_contamination) |
+|--PON | | path to panel of normal VCF file used to filter calls |
+|--gatk_version | 4 | gatk version |
+|--ref_RNA | | fasta reference for preprocessing RNA (required for option --RNAseq_preproc) |
+
+NOTE: if neither --bed or --region, will perform the calling on whole genome, based on the faidx file.
+
+* #### Optional for gatk3 
+These options are not needed if gatk4 is used
+
+| Name | Default value | Description |
+|-----------|--------------|-------------| 
+|--cosmic |  | Cosmic VCF file required by mutect; not in gatk4 |
+|--mutect_jar | | path to jar file of mutect1 |
+|--mutect2_jar | | path to jar file of mutect2 |
 
 * #### Flags
 
 | Name  | Description |
 |-----------|-------------| 
 |--help | print usage and optional parameters |
-|--cutadapt | enable adapter and quality reads trimming before alignment|
-|--sjtrim   | enable reads trimming at splice junctions | 
-|--hisat2   | use hisat2 instead of STAR for mapping | 
-|--recalibration  | perform quality score recalibration (GATK)|
-
-estimate_contamination = null
-genotype = null
-RNAseq_preproc = null
-
+|--estimate_contamination | | run extra step of estimating contamination by normal and using the results to filter calls| 
+|--genotype | | use genotyping from vcf mode|
+|--RNAseq_preproc | | specifies if preprocessing is needed (splitting spanning reads, correcting CIGAR string with NDN pattern, and changing mapping quality of uniquely mapped reads from 255 to 60); useful for RNAseq data  ignored if tn_file is provided |
 
 ## Usage
-Nextflow seamlessly integrates with GitHub hosted code repositories:
+To run the pipeline on a series of matched tumor normal files (with suffixes *_T* and *_N*) in folders *tumor_BAM* *normal_BAM*, a reference genome with indexes *ref*, and a bed file ref.bed, one can type:
+```bash
+nextflow run nalcala/mutect-nf -r v2.0 -profile singularity  --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --ref ref_genome.fa --gtf ref.gtf 
+``` 
+To run the pipeline without singularity just remove "-profile singularity".
 
-`nextflow run iarcbioinfo/mutect-nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta --mutect_jar mutect.jar`
-
-If you specify option `--mutect2_jar` (GATK executable jar, which integrate mutect2) instead of `--mutect_jar`, the pipeline will automatically switched to mutect version 2.
+To use gatk3, set `--gatk_version 3`and provide option `--mutect2_jar` for mutect version 2 (GATK executable jar, which integrate mutect2), and `--mutect_jar` for mutect version 1.
 
 #### Help section
 You can print the help manual by providing `--help` in the execution command line:
@@ -98,33 +109,14 @@ nextflow run iarcbioinfo/mutect-nf --help
 ```
 This shows details about optional and mandatory parameters provided by the user.  
 
-#### BAM file format
-The tumor bam file format must be (`sample` `suffix_tumor` `.bam`) with `suffix_tumor` as `_T` by default and customizable in input (`--suffix_tumor`). (e.g. `sample1_T.bam`)
-The normal bam file format must be (`sample` `suffix_normal` `.bam`) with `suffix_normal` as `_N` by default and customizable in input (`--suffix_normal`). (e.g. `sample1_N.bam`).
-BAI indexes have to be present in the same location than their BAM mates, with the extension `bam.bai`.
-
 ## Output 
   | Type      | Description     |
   |-----------|---------------|
-  | BAM/file.bam    | BAM files of alignments or realignments |
-  | BAM/file.bam.bai    | BAI files of alignments or realignments |
-  | BAM/STAR.file.Chimeric.SJ.out.junction | STAR chimeric junction output |
-  | BAM/STAR.file.SJ.out.tab | STAR junction tab output |
-  | counts/file_count.txt                   | htseq-count output file  |
-  | QC/multiqc_pretrim_report.html  | multiqc report before trimming | 
-  | QC/multiqc_pretrim_report_data            | folder with data used to compute multiqc report before trimming |
-  | QC/multiqc_posttrim_report.html      |     multiqc report before trimming | 
-  | QC/multiqc_posttrim_report_data      |  folder with data used to compute multiqc report before trimming |
-  | QC/adapter_trimming/file_{12}.fq.gz_trimming_report.txt | trim_galore report | 
-  | QC/adapter_trimming/file_{12}_val_{12}_fastqc.zip | FastQC report after trimming | 
-  | QC/alignment/STAR.file.Log.final.out, STAR.file.Log.out, STAR.file.Log.progress.out | STAR logs |
-  | QC/bam/file_readdist.txt, file_clipping_profile\*, file_jun_stauration\*| RSeQC reports |
-  | QC/fastq/file_{12}_pretrim_fastqc.zip | FastQC report before trimming | 
-  | QC/BAM/BQSR/file_recal.table | table of scores before recalibration   |
-  | QC/BAM/BQSR/file_post_recal.table   | table of scores after recalibration |
-  | QC/BAM/BQSR/file_recalibration_plots.pdf   |  before/after recalibration plots   |
+  | sample.vcf.gz and sample.vcf.gz.tbi   | filtered VCF files and their indexes |
+  | stats/    | gatk stats files from mutect |
+  | intermediate_calls/raw_calls/sample.vcf | unfiltered VCF files |
           
-The output_folder directory contains three subfolders: BAM, counts, and QC
+The output_folder directory contains two subfolders: stats and intermediate_calls
 
 
 ## Directed Acyclic Graph
