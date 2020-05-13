@@ -1,15 +1,64 @@
 #! /usr/bin/env nextflow
 
+// Copyright (C) 2010 IARC/WHO
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+params.suffix_tumor = "_T"
+params.suffix_normal = "_N"
+params.mem = 8
+params.cpu = 4
+params.output_folder = "mutect_results"
+params.mutect_args = ""
+params.nsplit = 1
+params.region = null
+params.bed = null
+params.java = "java"
+params.known_snp = ""
+params.snp_contam = "NO_FILE"
+params.cosmic = ""
+params.mutect_jar = null
+params.mutect2_jar = null
+params.gatk_version= "4"
+params.tn_file = null
+params.tumor_bam_folder = null
+params.normal_bam_folder = null
+params.PON = null
+params.estimate_contamination = null
+params.genotype = null
+params.RNAseq_preproc = null
+
 params.help = null
 
+log.info "" 
+log.info "--------------------------------------------------------"
+log.info "  mutect-nf 2.0.0: Mutect pipeline for somatic variant calling with Nextflow "
+log.info "--------------------------------------------------------"
+log.info "Copyright (C) IARC/WHO"
+log.info "This program comes with ABSOLUTELY NO WARRANTY; for details see LICENSE"
+log.info "This is free software, and you are welcome to redistribute it"
+log.info "under certain conditions; see LICENSE for details."
+log.info "--------------------------------------------------------"
+log.info ""
+
+
 if (params.help) {
+log.info '-------------------------------------------------------------'
+    log.info ' USAGE  '
+    log.info '-------------------------------------------------------------'
     log.info ''
-    log.info '--------------------------------------------------'
-    log.info '               NEXTFLOW mutect-nf v2.0            '
-    log.info '--------------------------------------------------'
-    log.info ''
-    log.info 'Usage: '
-    log.info 'nextflow run mutect.nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --bed mybedfile.bed --ref ref.fasta --mutect_args " --force_output --force_alleles " '
+    log.info 'nextflow run mutect.nf --tumor_bam_folder tumor_BAM/ --normal_bam_folder normal_BAM/ --ref ref.fasta [OPTIONS] '
     log.info ''
     log.info 'Mandatory arguments:'
     log.info '    --tumor_bam_folder   FOLDER                  Folder containing tumor BAM files to be called.'
@@ -22,13 +71,13 @@ if (params.help) {
     log.info '    --mutect_jar         FILE                    mutect*.jar explicit path.'
     log.info '    OR'
     log.info '    --mutect2_jar        FILE                    gatk*.jar explicit path to run mutect2 (integrated to GATK).'
+    log.info ''
     log.info 'Optional arguments:'
     log.info '    --bed                FILE                    Bed file containing intervals.'
     log.info '    --region             REGION                  A region defining the calling, in the format CHR:START-END.'
     log.info '    NOTE: if neither --bed or --region, will perform the calling on whole genome, based on the faidx file.'
     log.info '    --nsplit             INTEGER                 Split the region for calling in nsplit pieces and run in parallel.'
-    log.info '    --dbsnp              FILE                    dbSNP VCF file required by mutect (CAUTION: not a symbolic link).'
-    log.info '    --cosmic             FILE                    Cosmic VCF file required by mutect (CAUTION: not a symbolic link).'
+    log.info '    --cosmic             FILE                    Cosmic VCF file required by mutect (CAUTION: not a symbolic link); not in gatk4.'
     log.info '    --mutect_args        STRING                  Arguments you want to pass to mutect.'
     log.info '                                                 WARNING: form is " --force_alleles " with spaces between quotes.'
     log.info '    --suffix_tumor       STRING                  Suffix identifying tumor bam (default: "_T").'
@@ -37,6 +86,7 @@ if (params.help) {
     log.info '    --output_folder         FOLDER                  Output folder (default: mutect_results).'
     log.info '    --java               PATH                    Name of the JAVA command  (default: java).'
     log.info ''
+    log.info 'Flags:'
     log.info ''
     exit 0
 }
@@ -46,29 +96,10 @@ fasta_ref_fai  = file( params.ref+'.fai' )
 fasta_ref_gzi  = file( params.ref+'.gzi' )
 fasta_ref_dict = file( params.ref.replace(".fasta",".dict").replace(".fa",".dict") )
 
-params.suffix_tumor = "_T"
-params.suffix_normal = "_N"
-params.mem = 8
-params.output_folder = "mutect_results"
-params.mutect_args = ""
-params.nsplit = 1
-params.region = null
-params.bed = null
-params.java = "java"
-params.known_snp = ""
-params.snp_contam = "NO_FILE"
 snp_contam = file(params.snp_contam)
 snp_contam_tbi = file(params.snp_contam+'.tbi')
-params.cosmic = ""
 if (params.cosmic == "") { cosmic_option = "" } else { cosmic_option = "--cosmic" }
-params.mutect_jar = null
-params.mutect2_jar = null
-params.gatk_version= "4"
 mutect_version = params.mutect_jar ? 1 : 2
-params.tn_file = null
-params.bam_folder = "./"
-params.tumor_bam_folder = null
-params.normal_bam_folder = null
 if (params.known_snp == "") { known_snp_option = "" } else {
         if(params.gatk_version == "4"){
                 known_snp_option = "--germline-resource"
@@ -76,7 +107,6 @@ if (params.known_snp == "") { known_snp_option = "" } else {
                 known_snp_option = "--dbsnp"
         }
 }
-params.PON = null
 if (params.PON) { 
 	PON = file(params.PON)
 	PON_tbi = file(params.PON+'.tbi')
@@ -84,9 +114,6 @@ if (params.PON) {
 	PON = file('NO_FILE')
 	PON_tbi = file('NO_FILE2')
 }
-params.estimate_contamination = null
-params.genotype = null
-params.RNAseq_preproc = null
 
 if(params.genotype){
 fasta_ref_RNA      = file(params.ref_RNA)
@@ -96,21 +123,17 @@ fasta_ref_RNA_dict = file( params.ref_RNA.replace(".fasta",".dict").replace(".fa
 
 if (params.tn_file) {
     // FOR INPUT AS A TAB DELIMITED FILE
-//    tn_bambai = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true).map{row -> [row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai') ,file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ]}
-
-     pairs = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
-                       .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ] }
+    pairs = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
+                       .map{ row -> [ row.sample , file(row.tumor), file(row.tumor+'.bai'), file(row.normal), file(row.normal+'.bai') ] }
 
 	pairs2 = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
-                       .map{ row -> [ row.sample , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ] } //.subscribe { row -> println "${row}" }
+                       .map{ row -> [ row.sample , file(row.tumor), file(row.tumor+'.bai'), file(row.normal), file(row.normal+'.bai') ] }
 
     tn_bambai2 = pairs2.groupTuple(by: 0)
                               .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0]  ) }
-                              //.subscribe { row -> println "${row}" }
 
     tn_bambai = pairs.groupTuple(by: 0)
                               .map { row -> tuple(row[0] , row[1], row[2] , row[3][0] , row[4][0]  ) }
-                              //.subscribe { row -> println "${row}" }
 } else {
     // FOR INPUT AS TWO FOLDER
     // recovering of bam files
@@ -152,7 +175,6 @@ if (params.tn_file) {
 }
 
 
-
 /* manage input positions to call (bed or region or whole-genome) */
   if (params.region) {
       input_region = 'region'
@@ -166,9 +188,9 @@ if (params.tn_file) {
 //genotyping mode
 if(params.genotype){
     pairs2 = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
-                       .map{ row -> [ row.sample , row.preproc, file(params.bam_folder + "/" + row.tumor), 
-                       file(params.bam_folder + "/" + row.tumor+'.bai'), file(params.bam_folder + "/" + row.normal), 
-                       file(params.bam_folder + "/" + row.normal+'.bai'), file(params.bam_folder + "/" + row.vcf) ] }
+                       .map{ row -> [ row.sample , row.preproc, file(row.tumor), 
+                       file(row.tumor+'.bai'), file(row.normal), 
+                       file(row.normal+'.bai'), file(row.vcf) ] }
 
     pairs2.branch{
                     bam2preproc: it[1]=="yes"
@@ -179,7 +201,7 @@ if(params.genotype){
 //pre-processing of RNAseq data
 process RNAseq_preproc_fixMCNDN_fixMQ{
     memory params.mem+'GB'
-    cpus '4'
+    cpus params.cpu
     tag { sample }
 
     input:
@@ -221,10 +243,8 @@ process RNAseq_preproc_split{
     gatk SplitNCigarReads --java-options "-Xmx!{params.mem}G -Djava.io.tmpdir=$PWD" --add-output-sam-program-record  -fixNDN true -R !{fasta_ref_RNA} -I !{bam} -O !{new_tag}_$SM.bam
     '''
 }
-//}
 
 bam2nopreproc2 = bams.bam2nopreproc.map{ row -> tuple(row[0], row[2], row[3], row[4], row[5], row[6]) }
-
 bams2 = bam2nopreproc2.concat(bampreproc)
 
 tn_bambaivcf0 = bams2.groupTuple(by: 0)
@@ -234,7 +254,7 @@ tn_bambaivcf0.into{tn_bambaivcf; tn_bambaivcf4print}
 
 process genotype{
     memory params.mem+'GB'
-    cpus '4'
+    cpus params.cpu
     tag { sample }
 
     input:
@@ -339,17 +359,11 @@ process split_bed {
       '''
 }
 
-//println count_split_bed.count().val
-
 ( split_bed1 , split_bed2) = split_bed.into(2)
-
-
-//tn_bambai2.spread(split_bed2)
-//	  .subscribe{ row -> println "${row}"}
 
 process mutect {
     memory params.mem+'GB' 
-    cpus '4'
+    cpus params.cpu
 
     tag { printed_tag }
 
@@ -476,19 +490,17 @@ if(mutect_version==2){
         }*/
 
 if(params.estimate_contamination){
-	//not working right now, the following is just a sketch based on gatk best practices
 	pairsT4cont = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
-                       .map{ row -> [ row.sample , 'T' , file(params.bam_folder + "/" + row.tumor), file(params.bam_folder + "/" + row.tumor+'.bai') ] }
+                       .map{ row -> [ row.sample , 'T' , file(row.tumor), file(row.tumor+'.bai') ] }
 	pairsN4cont = Channel.fromPath(params.tn_file).splitCsv(header: true, sep: '\t', strip: true)
-         //                .filter { it.normal != 'None' }
-                         .map{ row -> [ row.sample , 'N', file(params.bam_folder + "/" + row.normal), file(params.bam_folder + "/" + row.normal+'.bai') ] }
+                         .map{ row -> [ row.sample , 'N', file(row.normal), file(row.normal+'.bai') ] }
                        
 		       .unique()
 	pairs4cont  = pairsT4cont.concat( pairsN4cont )
 
 	process ContaminationEstimationPileup {
 	    memory params.mem+'GB'
-            cpus '2'
+        cpus '2'
 	    tag { tumor_normal_tag }
 
 	    input:
