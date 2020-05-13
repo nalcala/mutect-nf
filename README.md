@@ -27,15 +27,14 @@ When the estimate contamination mode is chosen, one needs to provide a list of k
 ## Input 
  | Type      | Description     |
   |-----------|---------------|
-  |--input_folder    | a folder with fastq files or bam files |
-  |--input_file |  input tabulation-separated values file with columns SM (sample name), RG (read group), pair1 (first fastq pair file), and pair2 (second fastq pair file) |
+  |--bam_folder    | a folder with tumor and normal bam files |
+  |--tumor_bam_folder | a folder with tumor bam files |
+  |--normal_bam_folder | a folder with normal bam files |
+  |--tn_file |  input tabulation-separated values file with columns SM (sample name), RG (read group), pair1 (first fastq pair file), and pair2 (second fastq pair file) |
   
-  Note that there are two input methods: folder and file. Although the input folder method is the easiest because it does not require to create an input file with the right format, the input file mode is recommended in cases when a single sample has multiple paired files (e.g., due to multiplexed sequencing); in that case, users should have one line per pair of file and put a same SM identifier so that the workflow can group them into the same output bam file.
-
-tn_file = null
-bam_folder = "./"
-tumor_bam_folder = null
-normal_bam_folder = null
+  Note that there are three input methods: single bam_folder, separated tumor_bam_folder and normal_bam_folder, and tn_file. The bam_folder method is the easiest and assumes that both normal and tumor bam files are in this folder, and it uses parameters suffix_tumor and suffix_normal to detect them (the rest of the file name needs to be identical); the separated tumor_bam_folder and normal_bam_folder method also uses the suffix_tumor and suffix_normal to match the samples. 
+  
+  The tn_file method uses a tabulation-separated values format file with columns sample, tumor, and normal (in any order); it does not use parameters suffix_tumor and suffix_normal and does not require file names to match. When the genotype mode is active, additional columns are expected: preproc, specifying if preprocessing of RNA-seq bam file is required (yes or no) and vcf, indicating the location of the vcf file containing the alleles to genotype. The tn_file method is necessary for joint multi-sample calling, in which case the sample name is used to group files.
 
 ## Parameters
 
@@ -43,7 +42,6 @@ normal_bam_folder = null
 | Name | Example value | Description |
 |-----------|--------------:|-------------| 
 |--ref | ref.fa | reference genome fasta file |
-|--gtf   |  Homo_sapiens.GRCh38.79.gtf | annotation GTF file |
 |--bed   |  gene.bed | bed file with genes for RESeQC | 
 
 
