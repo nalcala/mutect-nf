@@ -8,3 +8,4 @@ dependencies:
   - pysam=0.15.2
   - bedops=2.4.37
   - bedtools=2.29.2
+  - r-base=4.0.0
