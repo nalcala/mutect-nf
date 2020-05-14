@@ -169,7 +169,7 @@ if (params.tn_file) {
     // building 4-uplets corresponding to {tumor_bam, tumor_bai, normal_bam, normal_bai}
     tn_bambai = tumor_bam_bai
 	      .phase(normal_bam_bai)
-	      .map {tumor_bb, normal_bb -> [ tumor_bb[1], tumor_bb[2], normal_bb[1], normal_bb[2] ] }
+	      .map {tumor_bb, normal_bb -> [ tumor_bb[0], tumor_bb[1], tumor_bb[2], normal_bb[1], normal_bb[2] ] }
     // here each element X of tn_bambai channel is a 4-uplet. X[0] is the tumor bam, X[1] the tumor bai, X[2] the normal bam and X[3] the normal bai.
 }
 
