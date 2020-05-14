@@ -10,12 +10,13 @@ jobs:
                         - run: echo " docker.runOptions = '-u $(id -u):$(id -g)' " > ~/.nextflow/config
                         - run: cd ~/project/ ; docker build -t nalcala/mutect-nf .
                         - run: cd ~/project/ ; docker build -t nalcala/mutect-nf_gatk3 -f Dockerfile_gatk3 .
+                        - run: cd ~/project/ ; docker build -t nalcala/mutect-nf_gatk2 -f Dockerfile_gatk2 .
                         - run: cd ; nextflow run ~/project/mutect.nf --help
-                        - run: cd ; wget https://github.com/broadinstitute/mutect/releases/download/1.1.5/muTect-1.1.5-bin.zip; unzip muTect-1.1.5-bin.zip && docker run -v ${PWD}:/test nalcala/mutect-nf_gatk3 java -jar test/muTect-1.1.5.jar --help
-                        - run: cd ; wget https://github.com/MaxUlysse/CAW-containers/blob/master/containers/gatk/GenomeAnalysisTK-3.7.tar.bz2?raw=true ; mv GenomeAnalysisTK-3.7.tar.bz2?raw=true GenomeAnalysisTK.jar.tar.bz2 && tar -jxf GenomeAnalysisTK.jar.tar.bz2; chmod +x GenomeAnalysisTK.jar && docker run nalcala/mutect-nf java -jar GenomeAnalysisTK.jar --help
+                        - run: cd ; wget https://github.com/broadinstitute/mutect/releases/download/1.1.5/muTect-1.1.5-bin.zip; unzip muTect-1.1.5-bin.zip && docker run -v ${PWD}:/test nalcala/mutect-nf_gatk2 java -jar test/muTect-1.1.5.jar --help
+                        - run: cd ; wget https://github.com/MaxUlysse/CAW-containers/blob/master/containers/gatk/GenomeAnalysisTK-3.7.tar.bz2?raw=true ; mv GenomeAnalysisTK-3.7.tar.bz2?raw=true GenomeAnalysisTK.jar.tar.bz2 && tar -jxf GenomeAnalysisTK.jar.tar.bz2; chmod +x GenomeAnalysisTK.jar && docker run -v ${PWD}:/test nalcala/mutect-nf_gatk3 java -jar GenomeAnalysisTK.jar --help
                         - run: cd ; nextflow run ~/project/mutect.nf -with-docker nalcala/mutect-nf --tumor_bam_folder ~/data_test/BAM/test/ --normal_bam_folder ~/data_test/BAM/test/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --nsplit 2 -with-dag dag.png
-                        - run: cd ; nextflow run ~/project/mutect.nf -with-docker nalcala/mutect-nf_gatk3 --tumor_bam_folder ~/data_test/BAM/test/ --normal_bam_folder ~/data_test/BAM/test/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect_jar ~/muTect-1.1.5.jar --nsplit 2 --java /usr/lib/jvm/jdk1.7.0/bin/java -with-dag dag.html
-                        - run: cd ; nextflow run ~/project/mutect.nf -with-docker nalcala/mutect-nf --tumor_bam_folder ~/data_test/BAM/test/ --normal_bam_folder ~/data_test/BAM/test/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect2_jar ~/GenomeAnalysisTK.jar --nsplit 2 --out_folder mutect2_results
+                        - run: cd ; nextflow run ~/project/mutect.nf -with-docker nalcala/mutect-nf_gatk2 --tumor_bam_folder ~/data_test/BAM/test/ --normal_bam_folder ~/data_test/BAM/test/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect_jar ~/muTect-1.1.5.jar --nsplit 2  -with-dag dag.html
+                        - run: cd ; nextflow run ~/project/mutect.nf -with-docker nalcala/mutect-nf_gatk3 --tumor_bam_folder ~/data_test/BAM/test/ --normal_bam_folder ~/data_test/BAM/test/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect2_jar ~/GenomeAnalysisTK.jar --nsplit 2 --out_folder mutect2_results
                         - run: cd ; cp ~/dag* ~/project/.
                         - deploy:
                                 branch: [master, dev]
