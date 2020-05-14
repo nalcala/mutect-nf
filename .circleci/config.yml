@@ -9,7 +9,7 @@ jobs:
                         - run: cd ~ && git clone https://github.com/iarcbioinfo/data_test.git
                         - run: echo " docker.runOptions = '-u $(id -u):$(id -g)' " > ~/.nextflow/config
                         - run: cd ~/project/ ; docker build -t nalcala/mutect-nf .
-                        - run: cd ~/project/ ; docker build -t nalcala/mutect-nf_gatk3 -f Dockerfile_gatk3
+                        - run: cd ~/project/ ; docker build -t nalcala/mutect-nf_gatk3 -f Dockerfile_gatk3 .
                         - run: cd ; nextflow run ~/project/mutect.nf --help
                         - run: cd ; wget https://github.com/broadinstitute/mutect/releases/download/1.1.5/muTect-1.1.5-bin.zip; unzip muTect-1.1.5-bin.zip && docker run -v ${PWD}:/test nalcala/mutect-nf_gatk3 java -jar test/muTect-1.1.5.jar --help
                         - run: cd ; wget https://github.com/MaxUlysse/CAW-containers/blob/master/containers/gatk/GenomeAnalysisTK-3.7.tar.bz2?raw=true ; mv GenomeAnalysisTK-3.7.tar.bz2?raw=true GenomeAnalysisTK.jar.tar.bz2 && tar -jxf GenomeAnalysisTK.jar.tar.bz2; chmod +x GenomeAnalysisTK.jar && docker run nalcala/mutect-nf java -jar GenomeAnalysisTK.jar --help
