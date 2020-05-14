@@ -5,8 +5,6 @@ channels:
   - defaults
 dependencies:
   - gatk4=4.1.7.0
-  - bioconductor-variantannotation=1.32.0
   - pysam=0.15.2
   - bedops=2.4.37
   - bedtools=2.29.2
-  - r-optparse=1.6.6

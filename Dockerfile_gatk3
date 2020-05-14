@@ -19,5 +19,5 @@ MAINTAINER **nalcala** <**alcalan@iarc.fr**>
 ################## INSTALLATION ######################
 COPY environment_gatk3.yml /
 RUN apt-get update && apt-get install -y procps && apt-get clean -y
-RUN conda env create -n mutect-nf -f /environment.yml && conda clean -a
+RUN conda env create -n mutect-nf -f /environment_gatk3.yml && conda clean -a
 ENV PATH /opt/conda/envs/mutect-nf/bin:$PATH
