@@ -1,0 +1,10 @@
+name: mutect_gatk2
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - java=7
+  - pysam=0.15.2
+  - bedops=2.4.37
+  - bedtools=2.29.2
