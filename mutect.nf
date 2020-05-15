@@ -462,7 +462,7 @@ process mergeMuTectOutputs {
           cat *calls_stats.txt >> header.txt
           mv header.txt !{tumor_normal_tag}_calls.vcf.stats
     fi  
-    if [ "!{mutect_version}" == "2" ] 
+    if [ "!{gatk_version}" == "4" ] 
         then
 	  gatk MergeMutectStats !{input_stats} -O !{tumor_normal_tag}_calls.vcf.stats
     fi  
