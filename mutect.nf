@@ -43,7 +43,7 @@ params.help = null
 
 log.info "" 
 log.info "--------------------------------------------------------"
-log.info "  mutect-nf 2.0.0: Mutect pipeline for somatic variant calling with Nextflow "
+log.info "  mutect-nf 2.1.0: Mutect pipeline for somatic variant calling with Nextflow "
 log.info "--------------------------------------------------------"
 log.info "Copyright (C) IARC/WHO"
 log.info "This program comes with ABSOLUTELY NO WARRANTY; for details see LICENSE"
@@ -462,7 +462,7 @@ process mergeMuTectOutputs {
           cat *calls_stats.txt >> header.txt
           mv header.txt !{tumor_normal_tag}_calls.vcf.stats
     fi  
-    if [ "!{gatk_version}" == "4" ] 
+    if [ "!{params.gatk_version}" == "4" ] 
         then
 	  gatk MergeMutectStats !{input_stats} -O !{tumor_normal_tag}_calls.vcf.stats
     fi  
