@@ -378,7 +378,7 @@ process mutect {
     output:
     set val(sample), file("${printed_tag}_*.vcf") into mutect_output1
     set val(sample), file("${printed_tag}*stats*") into mutect_output2
-    set val(sample), file("*_f1r2.tar.gz") into f1r2
+    set val(sample), file("*_f1r2.tar.gz") optional true into f1r2
 
     shell:
     bed_tag0 = bed.baseName 
