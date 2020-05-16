@@ -472,7 +472,7 @@ process mergeMuTectOutputs {
     '''
 }
 
-if(mutect_version==2){
+if(params.gatk_version=="4"){
 	/*println("Filtering output")
 	process ReadOrientationLearn {
             tag { tumor_normal_tag }
