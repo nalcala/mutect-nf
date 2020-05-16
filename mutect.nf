@@ -410,7 +410,7 @@ process mutect {
                     -o "!{sample}_!{bed_tag}_calls.vcf" -L !{bed} !{params.mutect_args}
 			    touch !{sample}_!{bed_tag}_calls_stats.txt 
 	        	else
-	        	    !{params.java} -Xmx!{params.mem}g --analysis_type MuTect --reference_sequence !{fasta_ref} \
+	        	    !{params.java} -Xmx!{params.mem}g -jar !{params.mutect_jar} --analysis_type MuTect --reference_sequence !{fasta_ref} \
                     !{known_snp_option} !{params.known_snp} !{cosmic_option} !{params.cosmic} --intervals !{bed} \
                     --input_file:tumor !{bamT} --input_file:normal !{bamN} --out "!{sample}_!{bed_tag}_calls_stats.txt" \
                     --vcf "!{sample}_!{bed_tag}_calls.vcf" !{params.mutect_args}
