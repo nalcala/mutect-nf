@@ -432,8 +432,7 @@ process mergeMuTectOutputs {
     set val(tumor_normal_tag2), file(txt_files) from mutect_output2.groupTuple(size: beds_length)
 
     output:
-    set val(tumor_normal_tag), file("${tumor_normal_tag}_calls.vcf") into res_merged
-    file("${tumor_normal_tag}_calls.vcf.stats") into vcf_stats
+    set val(tumor_normal_tag), file("${tumor_normal_tag}_calls.vcf"), file("${tumor_normal_tag}_calls.vcf.stats") into res_merged
 
     shell:
     input_stats=""
@@ -456,16 +455,19 @@ process mergeMuTectOutputs {
     mv header.txt !{tumor_normal_tag}_calls.vcf
 
     # MERGE TXT FILES if mutect1
-    if [ "!{mutect_version}" != "2" ]
+    if [ "!{mutect_version}" == "1" ]
         then
           head -n2 `ls -1 *.txt | head -1` > header.txt
           sed -i '1,2d' *calls.vcf.stats
           cat *calls_stats.txt >> header.txt
           mv header.txt !{tumor_normal_tag}_calls.vcf.stats
-    fi  
-    if [ "!{params.gatk_version}" == "4" ] 
-        then
-	  gatk MergeMutectStats !{input_stats} -O !{tumor_normal_tag}_calls.vcf.stats
+        else
+            if [ "!{params.gatk_version}" == "4" ] 
+            then
+	            gatk MergeMutectStats !{input_stats} -O !{tumor_normal_tag}_calls.vcf.stats
+            else  
+                touch !{tumor_normal_tag}_calls.vcf.stats
+            fi
     fi  
     '''
 }
@@ -571,14 +573,14 @@ if(params.estimate_contamination){
 	}
    res_merged_contam = res_merged.join(contam)
 }else{
-   res_merged_contam = res_merged.map{row -> [row[0], row[1], null]}
+   res_merged_contam = res_merged.map{row -> [row[0], row[1], row[2] , null]}
 }
 
 process FilterMuTectOutputs {
     tag { tumor_normal_tag }
 
     input:
-    set val(tumor_normal_tag), file(vcf), file(contam_tables) from res_merged_contam
+    set val(tumor_normal_tag), file(vcf), file(stats), file(contam_tables) from res_merged_contam
     file fasta_ref
     file fasta_ref_fai
     file fasta_ref_gzi
