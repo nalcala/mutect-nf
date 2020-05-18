@@ -1,9 +1,12 @@
-version: 2
-
+version: 2.1
+orbs:
+        codecov: codecov/codecov@1.0.2
 jobs:
         build:
                 machine: true
                 steps:
+                        #- codecov/upload:
+                        #        file: {{ coverage_report_filepath }}
                         - checkout
                         - run: cd ~ ; wget -qO- get.nextflow.io | bash ; chmod 755 nextflow ; sudo ln -s ~/nextflow /usr/local/bin/ ; sudo apt-get install graphviz
                         - run: cd ~ && git clone https://github.com/iarcbioinfo/data_test.git
@@ -18,7 +21,12 @@ jobs:
                         - run: cd ; nextflow run ~/project/mutect.nf -with-docker nalcala/mutect-nf --tumor_bam_folder ~/data_test/BAM/test/ --normal_bam_folder ~/data_test/BAM/test/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --nsplit 2 --cpu 2 --mem 7 --output_folder mutect2_results -with-dag dag.html
                         - run: cd ; nextflow run ~/project/mutect.nf -with-docker nalcala/mutect-nf_gatk3 --tumor_bam_folder ~/data_test/BAM/test/ --normal_bam_folder ~/data_test/BAM/test/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect2_jar ~/GenomeAnalysisTK.jar --gatk_version 3 --nsplit 2 --cpu 2 --mem 7  --output_folder mutect2gatk3_results
                         - run: cd ; nextflow run ~/project/mutect.nf -with-docker nalcala/mutect-nf_gatk2 --tumor_bam_folder ~/data_test/BAM/test/ --normal_bam_folder ~/data_test/BAM/test/ --bed ~/data_test/BED/TP53_exon2_11.bed --ref ~/data_test/REF/17.fasta --mutect_jar ~/muTect-1.1.5.jar --gatk_version 2 --nsplit 2 --cpu 2 --mem 7 --output_folder mutect1_results
+                        #test dbsnp
+                        #- run: cd ; wget 
                         - run: cd ; cp ~/dag* ~/project/.
+                        - run: bash <(curl -s https://codecov.io/bash)
+                        - store_artifacts:
+                                path: groovycov
                         - deploy:
                                 branch: [master, dev]
                                 command: chmod +x deploy.sh && ./deploy.sh
