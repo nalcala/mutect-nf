@@ -15,24 +15,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-params.suffix_tumor = "_T"
+params.suffix_tumor  = "_T"
 params.suffix_normal = "_N"
 params.mem = 8
 params.cpu = 4
 params.output_folder = "mutect_results"
-params.mutect_args = ""
+params.mutect_args   = ""
 params.nsplit = 1
 params.region = null
-params.bed = null
+params.bed  = null
 params.java = "java"
-params.known_snp = ""
+params.known_snp  = ""
 params.snp_contam = "NO_FILE"
 params.cosmic = ""
-params.mutect_jar = null
-params.mutect2_jar = null
-params.gatk_version= "4"
+params.mutect_jar   = null
+params.mutect2_jar  = null
+params.gatk_version = "4"
 params.tn_file = null
-params.tumor_bam_folder = null
+params.tumor_bam_folder  = null
 params.normal_bam_folder = null
 params.PON = null
 params.estimate_contamination = null
@@ -90,7 +90,7 @@ log.info '-------------------------------------------------------------'
     exit 0
 }
 
-fasta_ref      = file(params.ref)
+fasta_ref      = file( params.ref )
 fasta_ref_fai  = file( params.ref+'.fai' )
 fasta_ref_gzi  = file( params.ref+'.gzi' )
 fasta_ref_dict = file( params.ref.replace(".fasta",".dict").replace(".fa",".dict") )
@@ -99,6 +99,15 @@ snp_contam = file(params.snp_contam)
 snp_contam_tbi = file(params.snp_contam+'.tbi')
 if (params.cosmic == "") { cosmic_option = "" } else { cosmic_option = "--cosmic" }
 mutect_version = params.mutect_jar ? 1 : 2
+
+jar  = file('NO_MUTECT_JAR_FILE')
+if(params.mutect_jar){
+    jar = file(params.mutect_jar)
+}
+jar2 = file('NO_MUTECT2_JAR_FILE')
+if(params.mutect2_jar){
+    jar2 = file(params.mutect2_jar)
+}
 if (params.known_snp == "") { known_snp_option = "" } else {
         if(params.gatk_version == "4"){
                 known_snp_option = "--germline-resource"
@@ -374,6 +383,8 @@ process mutect {
     file fasta_ref_dict
     file PON
     file PON_tbi
+    file jar2
+    file jar
 
     output:
     set val(sample), file("${printed_tag}_*.vcf") into mutect_output1
@@ -405,12 +416,12 @@ process mutect {
     '''
     if [ "!{mutect_version}" == "2" ]
 		        then
-		            !{params.java} -Xmx!{params.mem}g -jar !{params.mutect2_jar} -T MuTect2  -R !{fasta_ref} !{known_snp_option} \
+		            !{params.java} -Xmx!{params.mem}g -jar !{jar2} -T MuTect2  -R !{fasta_ref} !{known_snp_option} \
                     !{params.known_snp} !{cosmic_option} !{params.cosmic} -I:normal !{bamN} -I:tumor !{bamT} \
                     -o "!{sample}_!{bed_tag}_calls.vcf" -L !{bed} !{params.mutect_args}
 			    touch !{sample}_!{bed_tag}_calls_stats.txt 
 	        	else
-	        	    !{params.java} -Xmx!{params.mem}g -jar !{params.mutect_jar} --analysis_type MuTect --reference_sequence !{fasta_ref} \
+	        	    !{params.java} -Xmx!{params.mem}g -jar !{jar} --analysis_type MuTect --reference_sequence !{fasta_ref} \
                     !{known_snp_option} !{params.known_snp} !{cosmic_option} !{params.cosmic} --intervals !{bed} \
                     --input_file:tumor !{bamT} --input_file:normal !{bamN} --out "!{sample}_!{bed_tag}_calls_stats.txt" \
                     --vcf "!{sample}_!{bed_tag}_calls.vcf" !{params.mutect_args}
@@ -458,7 +469,7 @@ process mergeMuTectOutputs {
     if [ "!{mutect_version}" == "1" ]
         then
           head -n2 `ls -1 *.txt | head -1` > header.txt
-          sed -i '1,2d' *calls.vcf.stats
+          sed -i '1,2d' *calls_stats.txt
           cat *calls_stats.txt >> header.txt
           mv header.txt !{tumor_normal_tag}_calls.vcf.stats
         else
