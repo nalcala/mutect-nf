@@ -102,6 +102,32 @@ log.info '-------------------------------------------------------------'
     log.info '                                                 requires tn_file with vcf column and gatk4, and if RNA-seq included, requires preproc column'
     log.info ''
     exit 0
+}else{
+    /* Software information */
+    log.info "suffix_tumor           = ${params.suffix_tumor}"
+    log.info "suffix_normal          = ${params.suffix_normal}"
+    log.info "mem                    = ${params.mem}"
+    log.info "cpu                    = ${params.cpu}"
+    log.info "output_folder          = ${params.output_folder}"
+    log.info "mutect_args            = ${params.mutect_args}"
+    log.info "nsplit                 = ${params.nsplit}"
+    log.info "region                 = ${params.region}"
+    log.info "bed                    = ${params.bed}"
+    log.info "java                   = ${params.java}"
+    log.info "known_snp              = ${params.known_snp}"
+    log.info "snp_contam             = ${params.snp_contam}"
+    log.info "cosmic                 = ${params.cosmic}"
+    log.info "mutect_jar             = ${params.mutect_jar}"
+    log.info "mutect2_jar            = ${params.mutect2_jar}"
+    log.info "gatk_version           = ${params.gatk_version}"
+    log.info "tn_file                = ${params.tn_file}"
+    log.info "tumor_bam_folder       = ${params.tumor_bam_folder}"
+    log.info "normal_bam_folder      = ${params.normal_bam_folder}"
+    log.info "PON                    = ${params.PON}"
+    log.info "estimate_contamination = ${params.estimate_contamination}"
+    log.info "genotype               = ${params.genotype}"
+    log.info "ref                    = ${params.ref}"
+    log.info "ref_RNA                = ${params.ref_RNA}"
 }
 
 //load reference
