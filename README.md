@@ -42,7 +42,7 @@ The normal bam file format must be (`sample` `suffix_normal` `.bam`) with `suffi
 BAI indexes have to be present in the same location than their BAM mates, with the extension `bam.bai`.
 
 #### The tn_file method 
-The method uses a tabulation-separated values format file with columns sample, tumor, and normal (in any order); it does not use parameters suffix_tumor and suffix_normal and does not require file names to match. When the genotype mode is active, additional columns are expected: preproc, specifying if preprocessing of RNA-seq bam file is required (yes or no) and vcf, indicating the location of the vcf file containing the alleles to genotype. The tn_file method is necessary for joint multi-sample calling, in which case the sample name is used to group files.
+The method uses a tabulation-separated values format file with columns sample, tumor, and normal (in any order); it does not use parameters suffix_tumor and suffix_normal and does not require file names to match. When the genotype mode is active, additional columns are expected: preproc, specifying if preprocessing of RNA-seq bam file is required (yes or no) and vcf, indicating the location of the vcf file containing the alleles to genotype. preproc includes splitting spanning reads, correcting CIGAR string with NDN pattern, and changing mapping quality of uniquely mapped reads from 255 to 60(gatk4's splitNCigarReads and a custom python script). The tn_file method is necessary for joint multi-sample calling, in which case the sample name is used to group files, and to specify preprocessing of some RNA-seq samples.
 
 BAI indexes have to be present in the same location than their BAM mates, with the extension `bam.bai`.
 
@@ -71,7 +71,7 @@ BAI indexes have to be present in the same location than their BAM mates, with t
 |--snp_contam  | | VCF file with known germline variants to genotype for contamination estimation (requires --estimate_contamination) |
 |--PON | | path to panel of normal VCF file used to filter calls |
 |--gatk_version | 4 | gatk version |
-|--ref_RNA | | fasta reference for preprocessing RNA (required for option --RNAseq_preproc) |
+|--ref_RNA | | fasta reference for preprocessing RNA (required when preproc column contains yes in input tn_file) |
 
 NOTE: if neither --bed or --region, will perform the calling on whole genome, based on the faidx file.
 
@@ -91,7 +91,6 @@ These options are not needed if gatk4 is used
 |--help | print usage and optional parameters |
 |--estimate_contamination | | run extra step of estimating contamination by normal and using the results to filter calls| 
 |--genotype | | use genotyping from vcf mode|
-|--RNAseq_preproc | | specifies if preprocessing is needed (splitting spanning reads, correcting CIGAR string with NDN pattern, and changing mapping quality of uniquely mapped reads from 255 to 60); useful for RNAseq data  ignored if tn_file is provided |
 
 ## Usage
 To run the pipeline on a series of matched tumor normal files (with suffixes *_T* and *_N*) in folders *tumor_BAM* *normal_BAM*, a reference genome with indexes *ref*, and a bed file ref.bed, one can type:
